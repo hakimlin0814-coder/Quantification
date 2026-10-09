@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>欧奈尔模型</title>
+  <link rel="stylesheet" href="/app-layout.css" />
+  <style>
+    .oneil-alert{padding:12px 14px;border:1px solid #6b5420;background:#2b2415;color:#f1d789;border-radius:10px;margin-bottom:12px}
+    .oneil-status-grid,.oneil-market-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+    .oneil-card{background:#111923;border:1px solid #263445;border-radius:10px;padding:12px}
+    .oneil-card small{display:block;color:#8fa2b8;margin-bottom:5px}.oneil-card strong{font-size:18px;color:#edf5ff}
+    .source-badge,.status-badge{display:inline-flex;align-items:center;justify-content:center;min-width:25px;padding:2px 7px;border-radius:999px;font-size:12px;font-weight:700;border:1px solid currentColor}
+    .source-o{color:#74b9ff}.source-p{color:#bd93f9}.source-a{color:#ffb86c}.source-u{color:#aab3bf}
+    .status-pass{color:#54d38a}.status-reject{color:#ff7b86}.status-incomplete{color:#f3c969}
+    .oneil-controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
+    .oneil-controls label{display:block;color:#9fb0c3;font-size:12px;margin-bottom:5px}
+    .oneil-control-head{display:flex;justify-content:space-between;gap:6px;align-items:center}
+    .oneil-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px}
+    .oneil-toolbar .status{flex:1;min-width:260px}
+    .oneil-table td,.oneil-table th{white-space:nowrap}.oneil-table td.reason-cell{white-space:normal;min-width:240px}
+    .oneil-table tbody tr{cursor:pointer}.oneil-table tbody tr:hover{background:#172231}
+    .oneil-detail{max-width:900px}.oneil-detail-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px}
+    .rule-line{display:grid;grid-template-columns:120px 70px 1fr;gap:8px;padding:7px 0;border-bottom:1px solid #263445;align-items:center}
+    .muted{color:#8fa2b8}.oneil-log{white-space:pre-wrap;max-height:260px;overflow:auto}
+    @media(max-width:700px){.rule-line{grid-template-columns:1fr}.oneil-toolbar .status{min-width:100%}}
+  </style>
+</head>
+<body>
+  <header>
+    <div><h1>欧奈尔模型</h1><p>原书规则映射与A股Q0研究观察池</p></div>
+    <div class="header-actions">
+      <select class="strategy-nav" aria-label="切换策略"><option value="/oneil-model" selected>欧奈尔模型</option></select>
+      <button class="ghost" type="button" onclick="window.open('/docs/oneil-model.md','_blank')">逻辑文档</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="oneil-alert">
+      当前只实现Q0研究观察池。页面中的 PASS 不代表完整欧奈尔买入信号；完整形态、机构I、M买入门控及组合回测仍为未完成。
+    </div>
+
+    <section id="researchStatus" class="panel">
+      <div class="panel-head"><div><h2>研究状态</h2><p>配置、数据截止和可复现信息</p></div><span class="source-badge source-u">研究模式</span></div>
+      <div id="statusCards" class="oneil-status-grid">
+        <div class="oneil-card"><small>配置状态</small><strong id="configState">校验中</strong></div>
+        <div class="oneil-card"><small>研究级别</small><strong>Q0</strong></div>
+        <div class="oneil-card"><small>观察日</small><strong id="asOfDate">—</strong></div>
+        <div class="oneil-card"><small>配置哈希</small><strong id="configHash">—</strong></div>
+        <div class="oneil-card"><small>主数据源</small><strong>Tushare</strong></div>
+        <div class="oneil-card"><small>兜底数据源</small><strong>AkShare</strong></div>
+      </div>
+    </section>
+
+    <section id="marketCards" class="panel">
+      <div class="panel-head"><div><h2>市场环境</h2><p>原书M候选与A股情绪分开显示，目前都不参与买入门控</p></div></div>
+      <div id="marketGrid" class="oneil-market-grid"><div class="oneil-card"><small>状态</small><strong>运行后显示</strong></div></div>
+    </section>
+
+    <details id="filterPanel" class="section-panel filter-panel" open>
+      <summary><span>策略配置</span><span class="muted">所有阈值可配置，来源标签不可隐藏</span></summary>
+      <div class="controls oneil-controls">
+        <div><div class="oneil-control-head"><label>观察日期</label><span class="source-badge source-a">A</span></div><input id="endDate" inputmode="numeric" maxlength="8" /></div>
+        <div><div class="oneil-control-head"><label>结果数量</label><span class="source-badge source-a">A</span></div><input id="topN" type="number" min="1" max="1000" value="100" /></div>
+        <div><div class="oneil-control-head"><label>季度EPS同比 ≥ %</label><span class="source-badge source-o">O</span></div><input id="minEps" type="number" step="1" value="25" /></div>
+        <div><div class="oneil-control-head"><label>季度销售同比 ≥ %</label><span class="source-badge source-o">O</span></div><input id="minSales" type="number" step="1" value="25" /></div>
+        <div><div class="oneil-control-head"><label>年度EPS CAGR ≥ %</label><span class="source-badge source-o">O</span></div><input id="minAnnual" type="number" step="1" value="25" /></div>
+        <div><div class="oneil-control-head"><label>年度ROE ≥ %</label><span class="source-badge source-o">O</span></div><input id="minRoe" type="number" step="1" value="17" /></div>
+        <div><div class="oneil-control-head"><label>RS百分位 ≥</label><span class="source-badge source-o">O</span></div><input id="minRs" type="number" step="1" value="80" /></div>
+        <div><div class="oneil-control-head"><label>突破RVOL ≥</label><span class="source-badge source-o">O</span></div><input id="minRvol" type="number" step="0.05" value="1.4" /></div>
+        <div><div class="oneil-control-head"><label>接近52周高点 ≥</label><span class="source-badge source-p">P</span></div><input id="nearHigh" type="number" min="0.5" max="1" step="0.01" value="0.85" /></div>
+        <div><div class="oneil-control-head"><label>均量窗口（日）</label><span class="source-badge source-p">P</span></div><input id="rvolLookback" type="number" min="5" max="250" value="50" /></div>
+        <div><div class="oneil-control-head"><label>最短历史（日）</label><span class="source-badge source-a">A</span></div><input id="minHistory" type="number" min="60" max="252" value="250" /></div>
+        <div><div class="oneil-control-head"><label>股票池</label><span class="source-badge source-a">A</span></div><select id="boardScope"><option value="hs_all">沪深全板块</option><option value="main_only">仅沪深主板</option></select></div>
+      </div>
+      <div class="oneil-toolbar">
+        <label><input id="excludeSt" type="checkbox" checked /> 排除当前ST名称 <span class="source-badge source-a">A</span></label>
+        <button type="button" onclick="validateConfig()">校验配置</button>
+        <button type="button" onclick="runScreen()">运行Q0观察池</button>
+        <button type="button" class="secondary" disabled title="D06/D07/D12/D13未确认">回测尚未开放</button>
+        <div id="status" class="status">等待运行</div>
+      </div>
+    </details>
+
+    <section class="panel">
+      <div class="panel-head"><div><h2>Q0观察结果</h2><p id="resultSummary">尚未运行</p></div><button class="ghost" type="button" onclick="exportCsv()">导出CSV</button></div>
+      <div class="table-wrap">
+        <table id="resultTable" class="oneil-table">
+          <thead><tr><th>状态</th><th>代码</th><th>名称</th><th>板块</th><th>行业</th><th>完成%</th><th>EPS同比</th><th>销售同比</th><th>3年CAGR</th><th>ROE</th><th>RS</th><th>新高位置</th><th>突破</th><th>RVOL</th><th>财务来源</th><th>交易可行性</th><th>失败/缺项</th></tr></thead>
+          <tbody><tr><td colspan="17">运行后显示结果；点击行查看逐规则证据。</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="logPanel" class="panel">
+      <div class="panel-head"><div><h2>运行日志与限制</h2><p>日志不得包含Token</p></div></div>
+      <pre id="logBox" class="oneil-log">等待运行</pre>
+    </section>
+  </main>
+
+  <div id="detailModal" class="modal" aria-hidden="true" onclick="if(event.target===this)closeDetail()">
+    <div class="modal-card oneil-detail" role="dialog" aria-modal="true" aria-labelledby="detailTitle">
+      <div class="modal-head"><h2 id="detailTitle">逐规则证据</h2><button class="icon-btn" type="button" onclick="closeDetail()">×</button></div>
+      <div id="detailBody" class="modal-body"></div>
+    </div>
+  </div>
+
+  <script src="/global-settings.js"></script>
+  <script src="/app-layout.js"></script>
+  <script>
+    let currentRows = [];
+    const $ = id => document.getElementById(id);
+    const esc = value => String(value ?? "").replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
+    const num = (id) => Number($(id).value);
+    const fmt = (value, digits=1) => value === null || value === undefined || value === "" ? "—" : Number(value).toFixed(digits);
+    const pctRatio = value => value === null || value === undefined ? "—" : `${(Number(value)*100).toFixed(1)}%`;
+    const sourceClass = source => ({O:"source-o",P:"source-p",A:"source-a",U:"source-u"}[source] || "source-u");
+
+    function today8(){const d=new Date();return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;}
+    $("endDate").value = today8();
+
+    function researchPayload(){
+      const mainOnly = $("boardScope").value === "main_only";
+      return {
+        end_date: $("endDate").value.trim(), oneil_research_level:"Q0", oneil_top_n:num("topN"),
+        oneil_min_eps_yoy:num("minEps"), oneil_min_sales_yoy:num("minSales"),
+        oneil_min_annual_eps_cagr:num("minAnnual"), oneil_min_roe:num("minRoe"),
+        oneil_min_rs:num("minRs"), oneil_min_rvol:num("minRvol"),
+        oneil_near_high_ratio:num("nearHigh"), oneil_rvol_lookback:num("rvolLookback"),
+        oneil_rs_lookback:252, oneil_min_history_days:num("minHistory"),
+        oneil_exclude_st:$("excludeSt").checked, oneil_include_chinext:!mainOnly,
+        oneil_include_star:!mainOnly, oneil_include_bj:false,
+        oneil_pattern_mode:"not_evaluated", oneil_institution_mode:"not_evaluated",
+        oneil_market_gate_mode:"display_only", oneil_sentiment_mode:"display_only",
+        oneil_financial_source_mode:"tushare_akshare_fallback"
+      };
+    }
+
+    async function validateConfig(){
+      setStatus("正在校验配置...");
+      try{
+        const res=await fetch("/api/oneil_model/config/validate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(researchPayload())});
+        const data=await res.json(); if(!res.ok||!data.ok)throw new Error(data.error||"校验失败");
+        $("configState").textContent="有效（Q0）"; $("configHash").textContent=data.config.config_hash; setStatus("配置有效；完整策略模块仍显示未完成");
+      }catch(error){$("configState").textContent="被阻断";setStatus(error.message,true);}
+    }
+
+    async function runScreen(){
+      const source=window.getGlobalDataSourcePayload?.(); if(!source)return;
+      setStatus("读取Tushare数据并计算Q0观察池...");
+      try{
+        const payload={...researchPayload(),...source};
+        const res=await fetch("/api/oneil_model/screen",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+        const data=await res.json(); if(!res.ok||!data.ok)throw new Error(data.error||"运行失败");
+        currentRows=data.rows||[]; $("asOfDate").textContent=data.as_of_date||"—"; $("configHash").textContent=data.config?.config_hash||"—"; $("configState").textContent="有效（Q0）";
+        renderMarket(data.market||{}); renderRows(currentRows); renderSummary(data.summary||{});
+        $("logBox").textContent=[...(data.logs||[]),"",...(data.limitations||[]).map(x=>`限制：${x}`),"",...(data.data_sources?.notes||[]).map(x=>`数据：${x}`)].join("\n");
+        setStatus(`完成：Q0观察通过 ${data.summary?.pass||0}，完整欧奈尔信号 0`);
+      }catch(error){setStatus(error.message,true);$("logBox").textContent=error.stack||error.message;}
+    }
+
+    function setStatus(text,bad=false){$("status").textContent=text;$("status").className=`status${bad?' bad':''}`;}
+    function renderSummary(s){$("resultSummary").textContent=`股票池 ${s.universe||0}｜价格完整 ${s.price_complete||0}｜财务完整 ${s.financial_complete||0}｜Q0 PASS ${s.pass||0}｜INCOMPLETE ${s.incomplete||0}｜REJECT ${s.reject||0}｜完整信号 0`;}
+    function renderMarket(m){
+      const cards=(m.indices||[]).map(x=>`<div class="oneil-card"><small>${esc(x.index_code)} · M候选 <span class="source-badge source-o">O/P/A</span></small><strong>派发日 ${x.distribution_count_25??'—'}</strong><div class="muted">跟进日 ${esc(x.follow_through||'NOT_EVALUATED')}｜仅展示</div></div>`);
+      const s=m.sentiment||{};cards.push(`<div class="oneil-card"><small>A股情绪 <span class="source-badge source-a">A</span></small><strong>上涨占比 ${fmt(s.advance_ratio_pct)}%</strong><div class="muted">涨停 ${s.limit_up_count??0}｜跌停 ${s.limit_down_count??0}｜仅展示</div></div>`);
+      $("marketGrid").innerHTML=cards.join("");
+    }
+    function statusBadge(value){const cls=value==="PASS"?"status-pass":value==="REJECT"?"status-reject":"status-incomplete";return `<span class="status-badge ${cls}">${esc(value)}</span>`;}
+    function renderRows(rows){
+      const body=$("resultTable").querySelector("tbody");
+      if(!rows.length){body.innerHTML='<tr><td colspan="17">没有返回记录。请查看日志和数据完整度。</td></tr>';return;}
+      body.innerHTML=rows.map((r,i)=>`<tr onclick="openDetail(${i})"><td>${statusBadge(r.status)}</td><td>${esc(r.symbol||r.ts_code)}</td><td>${esc(r.name)}</td><td>${esc(r.stock_type)}</td><td>${esc(r.industry)}</td><td>${fmt(r.gate_completion_pct)}%</td><td>${fmt(r.eps_yoy_q)}%</td><td>${fmt(r.sales_yoy_q)}%</td><td>${fmt(r.annual_eps_cagr)}%</td><td>${fmt(r.annual_roe)}%</td><td>${fmt(r.rs_percentile)}</td><td>${pctRatio(r.near_high_ratio)}</td><td>${r.new_high_breakout?'是':'否'}</td><td>${fmt(r.breakout_rvol,2)}</td><td>${esc(r.financial_source||'—')}</td><td>${esc(r.tradability?.status||'—')}</td><td class="reason-cell">${esc((r.failure_reasons||[]).join('；')||r.complete_oneil_note)}</td></tr>`).join("");
+    }
+    function openDetail(index){
+      const r=currentRows[index];if(!r)return;$("detailTitle").textContent=`${r.symbol||r.ts_code} ${r.name||''} · 逐规则证据`;
+      const rules=(r.rule_results||[]).map(rule=>`<div class="rule-line"><strong>${esc(rule.rule_id)}</strong><span class="source-badge ${sourceClass(rule.source)}">${esc(rule.source)}</span><div>${rule.passed===true?'通过':rule.passed===false?'失败':'无法判断'}｜实际 ${esc(rule.actual??'缺失')}｜阈值 ${esc(rule.threshold)}<div class="muted">${esc(rule.note||'')}</div></div></div>`).join("");
+      $("detailBody").innerHTML=`<div class="oneil-alert">${esc(r.complete_oneil_note)}</div><div class="oneil-detail-grid"><div class="oneil-card"><small>财报期/最晚公告</small><strong>${esc(r.report_date||'—')} / ${esc(r.max_ann_date||'—')}</strong></div><div class="oneil-card"><small>研究价格方法</small><strong>${esc(r.research_price_method||'—')}</strong></div><div class="oneil-card"><small>交易可行性</small><strong>${esc(r.tradability?.status||'—')}</strong><div class="muted">${esc(r.tradability?.note||'')}</div></div></div><h3>判断链</h3>${rules}`;
+      $("detailModal").classList.add("open");$("detailModal").setAttribute("aria-hidden","false");
+    }
+    function closeDetail(){$("detailModal").classList.remove("open");$("detailModal").setAttribute("aria-hidden","true");}
+    function exportCsv(){
+      if(!currentRows.length){setStatus("没有可导出的结果",true);return;}
+      const cols=["status","symbol","name","stock_type","industry","gate_completion_pct","eps_yoy_q","sales_yoy_q","annual_eps_cagr","annual_roe","rs_percentile","near_high_ratio","new_high_breakout","breakout_rvol","financial_source","complete_oneil_status"];
+      const quote=v=>`"${String(v??'').replaceAll('"','""')}"`;const csv='\ufeff'+[cols.join(','),...currentRows.map(r=>cols.map(c=>quote(r[c])).join(','))].join('\n');
+      const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download=`oneil_q0_${$("endDate").value}.csv`;a.click();URL.revokeObjectURL(a.href);
+    }
+    validateConfig();
+  </script>
+</body>
+</html>

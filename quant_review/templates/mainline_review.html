@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>主线复盘策略</title>
+  <style>
+    :root { --bg:#f6f7f9; --panel:#fff; --text:#172033; --muted:#657084; --line:#dfe3ea; --accent:#1769e0; --good:#087f5b; --bad:#c92a2a; --ink:#101828; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:"Microsoft YaHei", Arial, sans-serif; color:var(--text); background:var(--bg); }
+    header { position:sticky; top:0; z-index:3; background:var(--panel); border-bottom:1px solid var(--line); padding:14px 18px; }
+    .topbar { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; }
+    h1 { margin:0; font-size:20px; line-height:1.25; }
+    .header-actions { display:flex; align-items:center; gap:8px; }
+    .strategy-nav { width:190px; }
+    .controls { display:grid; grid-template-columns:repeat(6, minmax(120px, 1fr)); gap:10px; align-items:end; }
+    label { display:block; font-size:12px; color:var(--muted); margin-bottom:4px; }
+    input, select { width:100%; height:34px; border:1px solid var(--line); border-radius:6px; padding:0 8px; background:#fff; color:var(--text); }
+    button { height:34px; border:0; border-radius:6px; background:var(--accent); color:#fff; font-weight:700; cursor:pointer; padding:0 14px; }
+    button.secondary { background:#354052; }
+    button.ghost { background:#fff; color:var(--accent); border:1px solid var(--accent); }
+    button.mini-btn { height:26px; padding:0 8px; font-size:12px; border-radius:5px; background:#eef4ff; color:var(--accent); border:1px solid #b8cff8; }
+    .icon-btn { width:34px; padding:0; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--line); background:#fff; color:var(--text); font-weight:800; }
+    main { padding:14px 18px 28px; }
+    .tabs { display:flex; gap:8px; margin-bottom:12px; overflow:auto; }
+    .tab { padding:9px 12px; border:1px solid var(--line); background:#fff; border-radius:6px; cursor:pointer; white-space:nowrap; }
+    .tab.active { border-color:var(--accent); color:var(--accent); font-weight:700; }
+    section { display:none; }
+    section.active { display:block; }
+    .cards { display:grid; grid-template-columns:repeat(6, minmax(130px, 1fr)); gap:10px; margin-bottom:12px; }
+    .metric { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:12px; min-height:78px; }
+    .metric span { display:block; color:var(--muted); font-size:12px; margin-bottom:6px; }
+    .metric strong { display:block; font-size:20px; line-height:1.25; overflow-wrap:anywhere; }
+    .metric.wide { grid-column:span 3; }
+    .metric.wide strong { font-size:14px; line-height:1.55; font-weight:700; }
+    .table-wrap { background:#fff; border:1px solid var(--line); border-radius:8px; overflow:auto; max-height:calc(100vh - 260px); position:relative; }
+    table { width:100%; border-collapse:collapse; min-width:1200px; }
+    th, td { padding:9px 10px; border-bottom:1px solid var(--line); text-align:center; font-size:13px; white-space:nowrap; }
+    th { position:sticky; top:0; background:#f0f3f7; z-index:3; cursor:pointer; user-select:none; }
+    .freeze-code-name th:nth-child(1), .freeze-code-name td:nth-child(1) { position:sticky; left:0; z-index:2; min-width:88px; width:88px; max-width:88px; overflow:hidden; text-overflow:ellipsis; background:#fff; box-shadow:1px 0 0 var(--line); }
+    .freeze-code-name th:nth-child(2), .freeze-code-name td:nth-child(2) { position:sticky; left:88px; z-index:2; min-width:126px; width:126px; max-width:126px; overflow:hidden; text-overflow:ellipsis; background:#fff; box-shadow:1px 0 0 var(--line); }
+    .freeze-code-name th:nth-child(1), .freeze-code-name th:nth-child(2) { top:0; z-index:5; background:#f0f3f7; }
+    .log { background:var(--ink); color:#d7e2f1; border-radius:8px; padding:12px; height:300px; overflow:auto; white-space:pre-wrap; }
+    .status { color:var(--muted); margin:8px 0 0; }
+    .bad { color:var(--bad); font-weight:700; }
+    .modal { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(16,24,40,.45); padding:18px; z-index:10; }
+    .modal.open { display:flex; }
+    .modal-card { width:min(760px, 100%); max-height:88vh; overflow:auto; background:#fff; border-radius:8px; box-shadow:0 18px 60px rgba(16,24,40,.24); border:1px solid var(--line); }
+    .modal-head { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 16px; border-bottom:1px solid var(--line); }
+    .modal-head h2 { margin:0; font-size:16px; }
+    .modal-body { padding:14px 16px 16px; color:#2d3748; line-height:1.65; }
+    .modal-body h3 { margin:14px 0 6px; font-size:15px; color:var(--text); }
+    .modal-body ul { margin:6px 0 0; padding-left:20px; }
+    @media (max-width:900px) {
+      header { position:static; }
+      .topbar { align-items:flex-start; flex-direction:column; }
+      .header-actions { width:100%; }
+      .strategy-nav { flex:1; width:auto; }
+      .controls { grid-template-columns:repeat(2, minmax(130px, 1fr)); }
+      .cards { grid-template-columns:repeat(2, minmax(130px, 1fr)); }
+      .metric.wide { grid-column:span 2; }
+      h1 { font-size:18px; }
+    }
+  </style>
+  <link rel="stylesheet" href="/app-layout.css" />
+</head>
+<body>
+  <header>
+    <div class="topbar">
+      <h1>主线复盘策略</h1>
+      <div class="header-actions">
+        <select id="strategyNav" class="strategy-nav" onchange="goStrategy(this)" aria-label="策略切换">
+          <option value="/">大盘总览</option>
+          <option value="/mainline-review" selected>主线复盘策略</option>
+          <option value="/concept-radar">同花顺概念雷达</option>
+          <option value="/first-limit">涨停板策略</option>
+          <option value="/canslim-tao">CANSLIM+RPS策略</option>
+          <option value="/value-fcf">低估值现金流策略</option>
+          <option value="/dividend-low-vol">红利低波防守策略</option>
+          <option value="/stock-search">股票模糊搜索</option>
+          <option value="/realtime-ma">批量实时MA检查</option>
+        </select>
+        <button class="icon-btn" onclick="openHelp()" title="查看说明" aria-label="查看说明">?</button>
+      </div>
+    </div>
+    <div class="controls">
+      <div><label>复盘模式</label><select id="reviewMode"><option value="after_close">盘后复盘</option><option value="intraday">盘中预复盘</option></select></div>
+      <div><label>日期 YYYYMMDD</label><input id="endDate" /></div>
+      <div><label>板块来源</label><select id="boardSource"><option value="concept">一级概念</option><option value="industry">行业兜底</option><option value="auto">自动</option></select></div>
+      <div><label>回看交易日</label><input id="lookbackDays" type="number" value="70" /></div>
+      <div><label>扫描板块数</label><input id="boardScanLimit" type="number" value="80" /></div>
+      <div><label>展示板块数</label><input id="topBoards" type="number" value="12" /></div>
+      <div><label>展示个股数</label><input id="topStocks" type="number" value="80" /></div>
+      <div><label>个股Top比例</label><input id="topStockPercent" type="number" step="0.05" value="0.30" /></div>
+      <div><label>最低成交额亿</label><input id="minAmount" type="number" step="0.5" value="3" /></div>
+      <div><label>板块上涨比例</label><input id="minBoardUpRatio" type="number" step="0.05" value="0.55" /></div>
+      <div><label>最低板块分</label><input id="minBoardScore" type="number" value="58" /></div>
+      <div><label>最少成分数</label><input id="minMemberCount" type="number" value="8" /></div>
+      <div><label>5日过热%</label><input id="maxBoardRet5" type="number" value="18" /></div>
+      <div><label>10日过热%</label><input id="maxBoardRet10" type="number" value="32" /></div>
+      <div><label>最低个股分</label><input id="minScore" type="number" value="55" /></div>
+      <div><label>距10日线上限%</label><input id="maxDist" type="number" value="12" /></div>
+      <button onclick="runReview()">开始复盘</button>
+      <button class="secondary" onclick="downloadCsv('boards')">导出板块</button>
+      <button class="secondary" onclick="downloadCsv('stocks')">导出个股</button>
+    </div>
+    <div id="status" class="status">等待复盘。</div>
+  </header>
+  <main>
+    <div class="tabs">
+      <div class="tab active" onclick="showTab('market', this)">市场温度</div>
+      <div class="tab" onclick="showTab('boards', this)">主线板块</div>
+      <div class="tab" onclick="showTab('stocks', this)">个股候选</div>
+      <div class="tab" onclick="showTab('logs', this)">运行日志</div>
+    </div>
+    <section id="market" class="active"><div class="cards" id="marketCards"></div></section>
+    <section id="boards"><div class="table-wrap"><table id="boardsTable"></table></div></section>
+    <section id="stocks"><div class="table-wrap"><table id="stocksTable" class="freeze-code-name"></table></div></section>
+    <section id="logs"><div class="log" id="logBox"></div></section>
+  </main>
+
+  <div class="modal" id="helpModal" onclick="closeHelpOnBackdrop(event)" aria-hidden="true">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+      <div class="modal-head">
+        <h2 id="helpTitle">主线复盘策略说明</h2>
+        <button class="icon-btn" onclick="closeHelp()" title="关闭" aria-label="关闭">x</button>
+      </div>
+      <div class="modal-body">
+        <h3>策略逻辑</h3>
+        <ul>
+          <li>先判断市场温度，再从一级概念或行业里计算趋势、扩散、情绪、资金和持续性。</li>
+          <li>板块候选会过滤过热、成分数不足、上涨比例不足或强度不足的方向。</li>
+          <li>个股候选优先主线里的核心、中军、突破和首次回踩，风控提示用于排除追高风险。</li>
+        </ul>
+        <h3>界面使用</h3>
+        <ul>
+          <li>先设置日期、板块来源和阈值，再点击“开始复盘”。</li>
+          <li>“市场温度”看仓位和环境，“主线板块”看方向，“个股候选”看观察池。</li>
+          <li>表头可排序，导出按钮会导出当前复盘结果。</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <script src="/global-settings.js"></script>
+  <script src="/app-layout.js"></script>
+  <script src="/backtest.js"></script>
+  <script>
+    const today = new Date();
+    document.getElementById("endDate").value = `${today.getFullYear()}${String(today.getMonth()+1).padStart(2,"0")}${String(today.getDate()).padStart(2,"0")}`;
+    let latest = {boards: [], stocks: []};
+    let sortState = {};
+
+    const TABLE_COLUMNS = {
+      boards: [
+        ["board","板块"],["board_type","类型"],["lifecycle","生命周期"],["board_score","分数"],["trend_score","趋势"],["breadth_score","扩散"],["emotion_score","情绪"],["fund_score","资金"],["persistence_score","持续"],
+        ["ret5","5日%"],["ret10","10日%"],["ret20","20日%"],["pct_change","今日%"],["up_ratio","上涨比"],["strong_ratio","强涨比"],["above_ma10_ratio","站上10日"],["limit_count","涨停"],["broken_count","炸板"],["net_amount_yi","净流亿"],["amount_yi","成交额亿"],["amount_ratio","量能比"],["member_count","成分数"],["overheated","过热"],["is_candidate","候选"]
+      ],
+      stocks: [
+        ["code","代码"],["name","名称"],["stock_type","股票类型"],["board","板块"],["board_type","板块类型"],["role","角色"],["stock_score","分数"],["signal","信号"],["close","收盘"],["pct_chg","涨跌%"],
+        ["ret5","5日%"],["ret10","10日%"],["ret20","20日%"],["amount_yi","成交额亿"],["market_cap_yi","市值亿"],["distance_ma10","距10日%"],
+        ["amount_ratio","量能比"],["upper_shadow","上影%"],["relative_board","强于板块"],["ret10_rank_pct","强度排名"],["amount_rank_pct","成交排名"],["mv_rank_pct","市值排名"],["is_limit_up","涨停"],["is_broken_limit","炸板"],["stop_hint","风控提示"]
+      ]
+    };
+
+    function goStrategy(select) {
+      const target = select.value;
+      const current = window.location.pathname === "/index.html" ? "/" : window.location.pathname;
+      if (target && target !== current) {
+        if (window.matchMedia("(max-width: 900px)").matches) {
+          window.location.href = target;
+          return;
+        }
+        window.open(target, "_blank", "noopener");
+      }
+      select.value = current;
+    }
+
+    function showTab(id, el) {
+      document.querySelectorAll("section").forEach(s => s.classList.remove("active"));
+      document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+      document.getElementById(id).classList.add("active");
+      el.classList.add("active");
+    }
+
+    async function runReview() {
+      const dataSource = getGlobalDataSourcePayload();
+      if (!dataSource) return;
+      setStatus("复盘运行中，首次拉取会慢一些...");
+      const payload = {
+        ...dataSource,
+        review_mode: document.getElementById("reviewMode").value,
+        end_date: document.getElementById("endDate").value.trim(),
+        board_source: document.getElementById("boardSource").value,
+        lookback_days: Number(document.getElementById("lookbackDays").value),
+        board_scan_limit: Number(document.getElementById("boardScanLimit").value),
+        top_board_count: Number(document.getElementById("topBoards").value),
+        top_stock_count: Number(document.getElementById("topStocks").value),
+        top_stock_percent: Number(document.getElementById("topStockPercent").value),
+        min_amount_yi: Number(document.getElementById("minAmount").value),
+        min_board_up_ratio: Number(document.getElementById("minBoardUpRatio").value),
+        min_board_score: Number(document.getElementById("minBoardScore").value),
+        min_member_count: Number(document.getElementById("minMemberCount").value),
+        max_board_ret5: Number(document.getElementById("maxBoardRet5").value),
+        max_board_ret10: Number(document.getElementById("maxBoardRet10").value),
+        min_stock_score: Number(document.getElementById("minScore").value),
+        max_distance_ma10: Number(document.getElementById("maxDist").value)
+      };
+      try {
+        const res = await fetch("/api/mainline_review", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload)});
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error || "复盘失败");
+        latest = {boards: data.boards || [], stocks: data.stocks || []};
+        renderMarket(data.market || {});
+        renderTable("boardsTable", "boards", latest.boards, TABLE_COLUMNS.boards);
+        renderTable("stocksTable", "stocks", latest.stocks, TABLE_COLUMNS.stocks);
+        document.getElementById("logBox").textContent = (data.logs || []).join("\n");
+        setStatus(`复盘完成，交易日 ${data.trade_date}`);
+      } catch (err) {
+        setStatus(`复盘失败：${err.message}`, true);
+      }
+    }
+
+    function setStatus(text, bad=false) {
+      const el = document.getElementById("status");
+      el.textContent = text;
+      el.className = bad ? "status bad" : "status";
+    }
+
+    function renderMarket(m) {
+      const items = [
+        ["市场状态", m.state],["建议仓位", m.position],["温度分", m.score],["上涨比例", m.up_ratio],
+        ["赚钱效应", m.profit_score],["情绪分", m.emotion_score],["风险分", m.risk_score],["流动性", m.liquidity_score],
+        ["趋势分", m.trend_score],["资金流", m.flow_score],["涨停数", m.limit_up],["跌停数", m.limit_down],
+        ["炸板数", m.broken_limit],["连板高度", m.max_limit_times],["成交额亿", m.amount_yi],["量能比", m.amount_ratio],
+        ["净流入亿", m.market_net_yi],["交易日", m.trade_date],["模式", m.review_mode],["操作提示", m.playbook, true]
+      ];
+      document.getElementById("marketCards").innerHTML = items.map(([k,v,wide]) => (
+        `<div class="metric ${wide ? "wide" : ""}"><span>${escapeHtml(k)}</span><strong>${escapeHtml(v ?? "")}</strong></div>`
+      )).join("");
+    }
+
+    function renderTable(id, kind, rows, cols) {
+      const table = document.getElementById(id);
+      const head = `<thead><tr>${cols.map(c=>`<th onclick="sortTable('${id}','${kind}','${c[0]}')">${escapeHtml(c[1])} ${sortMark(kind, c[0])}</th>`).join("")}<th>操作</th></tr></thead>`;
+      const body = `<tbody>${rows.map((r,i)=>`<tr>${cols.map(c=>`<td>${escapeHtml(r[c[0]] ?? "")}</td>`).join("")}<td><button class="mini-btn" onclick="copyRow('${kind}', ${i})">复制整行</button></td></tr>`).join("")}</tbody>`;
+      table.innerHTML = head + body;
+    }
+
+    function sortMark(kind, key) {
+      const s = sortState[kind];
+      if (!s || s.key !== key) return "";
+      return s.dir === "asc" ? "▲" : "▼";
+    }
+    function sortTable(id, kind, key) {
+      const rows = [...(latest[kind] || [])];
+      if (!rows.length) return;
+      const prev = sortState[kind] || {};
+      const dir = prev.key === key && prev.dir === "desc" ? "asc" : "desc";
+      sortState[kind] = {key, dir};
+      rows.sort((a, b) => compareCell(a[key], b[key], dir));
+      latest[kind] = rows;
+      renderTable(id, kind, rows, TABLE_COLUMNS[kind]);
+    }
+    function compareCell(a, b, dir) {
+      const na = parseFloat(a), nb = parseFloat(b);
+      let result;
+      if (!Number.isNaN(na) && !Number.isNaN(nb)) {
+        result = na - nb;
+      } else {
+        result = String(a ?? "").localeCompare(String(b ?? ""), "zh-Hans-CN");
+      }
+      return dir === "asc" ? result : -result;
+    }
+
+    function downloadCsv(kind) {
+      const rows = latest[kind] || [];
+      if (!rows.length) { alert("暂无数据"); return; }
+      const cols = Object.keys(rows[0]);
+      const csv = [cols.join(",")].concat(rows.map(r => cols.map(c => `"${String(r[c] ?? "").replaceAll('"','""')}"`).join(","))).join("\n");
+      const blob = new Blob(["\ufeff" + csv], {type:"text/csv;charset=utf-8"});
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `${kind}_${new Date().toISOString().slice(0,10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    async function copyRow(kind, index) {
+      const row = (latest[kind] || [])[index];
+      const columns = TABLE_COLUMNS[kind] || [];
+      if (!row || !columns.length) return;
+      const header = columns.map(c => c[1]).join("\t");
+      const line = columns.map(c => String(row[c[0]] ?? "").replace(/\s+/g, " ").trim()).join("\t");
+      await navigator.clipboard.writeText(`${header}\n${line}`);
+      setStatus("已复制整行数据和表头");
+    }
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch]));
+    }
+    function openHelp() {
+      const modal = document.getElementById("helpModal");
+      modal.classList.add("open");
+      modal.setAttribute("aria-hidden", "false");
+    }
+    function closeHelp() {
+      const modal = document.getElementById("helpModal");
+      modal.classList.remove("open");
+      modal.setAttribute("aria-hidden", "true");
+    }
+    function closeHelpOnBackdrop(event) {
+      if (event.target.id === "helpModal") closeHelp();
+    }
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape") closeHelp();
+    });
+    initBacktestPanel({
+      strategy: "mainline",
+      getPayload: () => {
+        const dataSource = getGlobalDataSourcePayload();
+        if (!dataSource) return null;
+        return {
+          ...dataSource,
+          review_mode: "after_close",
+          end_date: document.getElementById("endDate").value.trim(),
+          board_source: document.getElementById("boardSource").value,
+          lookback_days: Number(document.getElementById("lookbackDays").value),
+          board_scan_limit: Number(document.getElementById("boardScanLimit").value),
+          top_board_count: Number(document.getElementById("topBoards").value),
+          top_stock_count: Number(document.getElementById("topStocks").value),
+          top_stock_percent: Number(document.getElementById("topStockPercent").value),
+          min_amount_yi: Number(document.getElementById("minAmount").value),
+          min_board_up_ratio: Number(document.getElementById("minBoardUpRatio").value),
+          min_board_score: Number(document.getElementById("minBoardScore").value),
+          min_member_count: Number(document.getElementById("minMemberCount").value),
+          max_board_ret5: Number(document.getElementById("maxBoardRet5").value),
+          max_board_ret10: Number(document.getElementById("maxBoardRet10").value),
+          min_stock_score: Number(document.getElementById("minScore").value),
+          max_distance_ma10: Number(document.getElementById("maxDist").value)
+        };
+      }
+    });
+  </script>
+</body>
+</html>

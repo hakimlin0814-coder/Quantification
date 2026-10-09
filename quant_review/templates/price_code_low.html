@@ -1,0 +1,910 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>低价暗语新低策略</title>
+  <style>
+    :root { --bg:#f6f7f9; --panel:#fff; --text:#172033; --muted:#657084; --line:#dfe3ea; --accent:#1769e0; --good:#087f5b; --warn:#b7791f; --bad:#c92a2a; --ink:#101828; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:"Microsoft YaHei", Arial, sans-serif; color:var(--text); background:var(--bg); }
+    header { background:var(--panel); border-bottom:1px solid var(--line); padding:14px 18px; }
+    .topbar { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; }
+    h1 { margin:0; font-size:20px; }
+    .header-actions { display:flex; align-items:center; gap:8px; }
+    .strategy-nav { width:210px; }
+    .controls { display:grid; grid-template-columns:repeat(6, minmax(120px, 1fr)); gap:10px; align-items:end; }
+    label { display:block; font-size:12px; color:var(--muted); margin-bottom:4px; }
+    input, select { width:100%; height:34px; border:1px solid var(--line); border-radius:6px; padding:0 8px; background:#fff; color:var(--text); }
+    .check { height:34px; display:flex; align-items:center; gap:8px; border:1px solid var(--line); border-radius:6px; padding:0 10px; background:#fff; color:var(--text); font-size:13px; margin:0; }
+    .check input { width:auto; height:auto; }
+    button { height:34px; border:0; border-radius:6px; background:var(--accent); color:#fff; font-weight:700; cursor:pointer; padding:0 14px; }
+    button.secondary { background:#354052; }
+    button.ghost { background:#fff; color:var(--accent); border:1px solid var(--accent); }
+    button.mini-btn { height:26px; padding:0 8px; font-size:12px; border-radius:5px; background:#eef4ff; color:var(--accent); border:1px solid #b8cff8; }
+    .icon-btn { width:34px; padding:0; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--line); background:#fff; color:var(--text); font-weight:800; }
+    main { padding:14px 18px 28px; }
+    .status { color:var(--muted); margin:8px 0 12px; }
+    .status.bad, .bad { color:var(--bad); font-weight:700; }
+    .positive { color:var(--good); font-weight:800; }
+    .warn { color:var(--warn); font-weight:800; }
+    .cards { display:grid; grid-template-columns:repeat(6, minmax(130px, 1fr)); gap:10px; margin:0 0 12px; }
+    .metric { background:#fff; border:1px solid var(--line); border-radius:8px; padding:12px; min-height:78px; }
+    .metric span { display:block; color:var(--muted); font-size:12px; margin-bottom:6px; }
+    .metric strong { display:block; font-size:18px; line-height:1.3; overflow-wrap:anywhere; }
+    .toolbar { display:flex; gap:8px; flex-wrap:wrap; margin:0 0 12px; }
+    .table-wrap { background:#fff; border:1px solid var(--line); border-radius:8px; overflow:auto; max-height:calc(100vh - 300px); position:relative; }
+    table { width:100%; border-collapse:collapse; min-width:100%; }
+    th, td { padding:9px 10px; border-bottom:1px solid var(--line); text-align:center; font-size:13px; white-space:nowrap; }
+    th { position:sticky; top:0; background:#f0f3f7; cursor:pointer; user-select:none; z-index:3; }
+    #resultTable.freeze-code-name th:nth-child(1), #resultTable.freeze-code-name td:nth-child(1) { position:sticky; left:0; z-index:2; min-width:48px; width:48px; box-shadow:1px 0 0 var(--app-border); }
+    #resultTable.freeze-code-name th:nth-child(2), #resultTable.freeze-code-name td:nth-child(2) { position:sticky; left:48px; z-index:2; min-width:88px; box-shadow:1px 0 0 var(--app-border); }
+    #resultTable.freeze-code-name th:nth-child(3), #resultTable.freeze-code-name td:nth-child(3) { position:sticky; left:136px; z-index:2; min-width:110px; box-shadow:1px 0 0 var(--app-border); }
+    #resultTable.freeze-code-name td:nth-child(1), #resultTable.freeze-code-name td:nth-child(2), #resultTable.freeze-code-name td:nth-child(3) { background:#0d1117; color:var(--app-text); }
+    #resultTable.freeze-code-name th:nth-child(1), #resultTable.freeze-code-name th:nth-child(2), #resultTable.freeze-code-name th:nth-child(3) { z-index:5; background:#161b22; color:var(--app-text); }
+    .row-check { width:auto; height:auto; cursor:pointer; }
+    .code-cell { color:var(--accent); font-weight:800; cursor:pointer; }
+    .detail-cell { max-width:520px; white-space:normal; text-align:left; line-height:1.45; }
+    .column-actions { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px; }
+    .column-grid { display:grid; grid-template-columns:repeat(6, minmax(125px, 1fr)); gap:8px; }
+    .column-option { display:flex; align-items:center; gap:7px; min-height:32px; margin:0; padding:6px 8px; border:1px solid var(--line); border-radius:6px; color:var(--text); background:var(--panel); font-size:13px; }
+    .column-option input { width:auto; height:auto; }
+    .log { margin-top:12px; background:var(--ink); color:#d7e2f1; border-radius:8px; padding:12px; height:180px; overflow:auto; white-space:pre-wrap; }
+    .modal { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(16,24,40,.45); padding:18px; z-index:10; }
+    .modal.open { display:flex; }
+    .modal-card { width:min(920px, 100%); max-height:90vh; overflow:auto; background:#fff; border-radius:8px; box-shadow:0 18px 60px rgba(16,24,40,.24); border:1px solid var(--line); }
+    .modal-head { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 16px; border-bottom:1px solid var(--line); }
+    .modal-head h2 { margin:0; font-size:16px; }
+    .modal-body { padding:14px 16px 18px; color:#2d3748; line-height:1.7; }
+    .modal-body h1 { font-size:22px; }
+    .modal-body h2 { margin:22px 0 8px; font-size:18px; border-bottom:1px solid var(--line); padding-bottom:6px; }
+    .modal-body h3 { margin:16px 0 6px; font-size:15px; }
+    .modal-body p { margin:8px 0; }
+    .modal-body ul, .modal-body ol { margin:8px 0 8px 20px; padding-left:18px; }
+    .modal-body code { font-family:Consolas, "Courier New", monospace; background:#263244; color:#93c5fd; border:1px solid #3b4a60; padding:1px 5px; border-radius:4px; }
+    .backtest-card { width:min(1500px, 98vw); }
+    .backtest-controls { display:grid; grid-template-columns:repeat(5, minmax(150px, 1fr)); gap:10px; align-items:end; margin-bottom:12px; }
+    .backtest-summary { display:grid; grid-template-columns:repeat(6, minmax(130px, 1fr)); gap:10px; margin-bottom:12px; }
+    .backtest-table-wrap { max-height:48vh; }
+    #backtestTable { min-width:1500px; }
+    .category-stats-wrap { max-height:250px; margin:12px 0; }
+    #categoryStatsTable { min-width:720px; }
+    .scan-controls { display:grid; grid-template-columns:repeat(6, minmax(130px, 1fr)); gap:10px; align-items:end; margin:10px 0; }
+    .scan-summary { display:grid; grid-template-columns:repeat(6, minmax(130px, 1fr)); gap:10px; margin:10px 0; }
+    .scan-table-wrap { max-height:38vh; }
+    #scanTable { min-width:1280px; }
+    .selection-note { display:inline-flex; align-items:center; color:var(--muted); font-size:13px; padding:0 4px; }
+    .backtest-log { height:110px; margin-top:12px; }
+    @media (max-width:900px) {
+      .topbar { align-items:flex-start; flex-direction:column; }
+      .header-actions { width:100%; }
+      .strategy-nav { flex:1; width:auto; }
+      .controls { grid-template-columns:repeat(2, minmax(130px, 1fr)); }
+      .cards { grid-template-columns:repeat(2, minmax(130px, 1fr)); }
+      .column-grid { grid-template-columns:repeat(2, minmax(120px, 1fr)); }
+      .backtest-controls, .backtest-summary, .scan-controls, .scan-summary { grid-template-columns:repeat(2, minmax(130px, 1fr)); }
+    }
+  </style>
+  <link rel="stylesheet" href="/app-layout.css" />
+</head>
+<body>
+  <header>
+    <div class="topbar">
+      <h1>低价暗语新低策略</h1>
+      <div class="header-actions">
+        <select id="strategyNav" class="strategy-nav" onchange="goStrategy(this)" aria-label="策略切换">
+          <option value="/">大盘总览</option>
+          <option value="/mainline-review">主线复盘策略</option>
+          <option value="/concept-radar">同花顺概念雷达</option>
+          <option value="/first-limit">涨停板策略</option>
+          <option value="/first-wave">第一波启动策略</option>
+          <option value="/canslim-tao">CANSLIM+RPS策略</option>
+          <option value="/value-fcf">低估值现金流策略</option>
+          <option value="/dividend-low-vol">红利低波防守策略</option>
+          <option value="/price-code-low" selected>低价暗语新低策略</option>
+          <option value="/stock-search">股票模糊搜索</option>
+          <option value="/realtime-ma">批量实时MA检查</option>
+        </select>
+        <button class="icon-btn" onclick="openHelp()" title="查看暗语说明" aria-label="查看暗语说明">?</button>
+      </div>
+    </div>
+    <div class="controls" id="filterPanel">
+      <div><label>新低交易日数 N</label><input id="lowDays" type="number" min="2" max="250" value="20" /></div>
+      <div><label>量能平均天数</label><input id="volumeDays" type="number" min="1" max="60" value="5" /></div>
+      <div>
+        <label>量能范围</label>
+        <select id="volumeFilter" onchange="updateBacktestScope()">
+          <option value="all">全部量能</option>
+          <option value="expand">只看放量</option>
+          <option value="shrink">只看缩量</option>
+        </select>
+      </div>
+      <div><label>量能变化阈值%</label><input id="volumeThresholdPct" type="number" min="0" max="100" step="1" value="20" oninput="updateBacktestScope()" /></div>
+      <div><label>二级行业市值前N（0关闭）</label><input id="industryMvRankTop" type="number" min="0" max="1000" step="1" value="5" oninput="updateBacktestScope()" /></div>
+      <label class="check"><input id="excludeSt" type="checkbox" checked /> 过滤ST</label>
+      <label class="check"><input id="excludeChinext" type="checkbox" checked /> 过滤创业板</label>
+      <label class="check"><input id="excludeStar" type="checkbox" checked /> 过滤科创板</label>
+      <button onclick="runStrategy()">刷新实时筛选</button>
+      <button class="secondary" onclick="downloadCsv()">导出CSV</button>
+      <button class="ghost" onclick="copyAllCodes()">复制全部代码</button>
+      <button class="ghost" onclick="openHelp()">暗语类型说明</button>
+    </div>
+    <div id="status" class="status">等待实时筛选。</div>
+  </header>
+  <main>
+    <div class="cards" id="summaryCards"></div>
+    <div class="toolbar">
+      <button onclick="runStrategy()">刷新实时数据</button>
+      <button class="ghost" onclick="copyAllCodes()">复制全部代码</button>
+      <button class="ghost" onclick="copySelectedCodes()">复制勾选代码</button>
+      <button class="secondary" onclick="downloadCsv()">导出CSV</button>
+      <button class="secondary" onclick="downloadCsv(true)">导出勾选CSV</button>
+      <button class="secondary" onclick="openBacktest()">次日收盘回测</button>
+      <span class="selection-note" id="selectionSummary">已勾选 0 只</span>
+    </div>
+    <details class="section-panel column-panel" id="columnPanel" style="margin-bottom:12px;">
+      <summary>选择结果列 <span class="summary-note" id="columnSummary"></span></summary>
+      <div style="border-top:1px solid var(--line); padding:10px;">
+        <div class="column-actions">
+          <button class="ghost" onclick="resetVisibleColumns()">恢复默认列</button>
+          <button class="ghost" onclick="showAllColumns()">显示全部列</button>
+        </div>
+        <div class="column-grid" id="columnChoices"></div>
+      </div>
+    </details>
+    <div class="table-wrap"><table id="resultTable" class="freeze-code-name"></table></div>
+    <div class="log" id="logBox"></div>
+  </main>
+
+  <div class="modal" id="helpModal" onclick="closeHelpOnBackdrop(event)" aria-hidden="true">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+      <div class="modal-head">
+        <h2 id="helpTitle">低价暗语新低策略说明</h2>
+        <button class="icon-btn" onclick="closeHelp()" title="关闭" aria-label="关闭">x</button>
+      </div>
+      <div class="modal-body" id="helpBody">正在读取 Markdown 说明...</div>
+    </div>
+  </div>
+
+  <div class="modal" id="backtestModal" onclick="closeBacktestOnBackdrop(event)" aria-hidden="true">
+    <div class="modal-card backtest-card" role="dialog" aria-modal="true" aria-labelledby="backtestTitle">
+      <div class="modal-head">
+        <h2 id="backtestTitle">暗语新低次日收盘回测</h2>
+        <button class="icon-btn" onclick="closeBacktest()" title="关闭" aria-label="关闭">x</button>
+      </div>
+      <div class="modal-body">
+        <div class="backtest-controls">
+          <div><label>开始日期 YYYYMMDD</label><input id="backtestStartDate" /></div>
+          <div><label>结束日期 YYYYMMDD</label><input id="backtestEndDate" /></div>
+          <div><label>最多信号日</label><input id="backtestMaxDays" type="number" min="5" max="500" value="120" /></div>
+          <button onclick="runPriceCodeBacktest()">运行回测</button>
+          <button class="secondary" onclick="downloadBacktestCsv()">导出回测CSV</button>
+        </div>
+        <div id="backtestStatus" class="status">等待运行。次日涨跌按次日收盘相对信号日收盘计算。</div>
+        <div id="backtestScope" class="status"></div>
+        <details class="section-panel" open style="margin-bottom:12px;">
+          <summary>批量参数扫描</summary>
+          <div style="border-top:1px solid var(--line); padding:10px;">
+            <div class="scan-controls">
+              <div>
+                <label>扫描方向</label>
+                <select id="scanDirection">
+                  <option value="both">放量和缩量分别扫描</option>
+                  <option value="expand">只扫描放量</option>
+                  <option value="shrink">只扫描缩量</option>
+                </select>
+              </div>
+              <div><label>新低最小N</label><input id="scanLowMinDays" type="number" min="2" max="250" step="1" value="10" /></div>
+              <div><label>新低最大N</label><input id="scanLowMaxDays" type="number" min="2" max="250" step="1" value="50" /></div>
+              <div><label>新低步长</label><input id="scanLowStepDays" type="number" min="1" max="250" step="1" value="10" /></div>
+              <div><label>行业排名最小</label><input id="scanIndustryRankMin" type="number" min="1" max="1000" step="1" value="1" /></div>
+              <div><label>行业排名最大</label><input id="scanIndustryRankMax" type="number" min="1" max="1000" step="1" value="5" /></div>
+              <div><label>行业排名步长</label><input id="scanIndustryRankStep" type="number" min="1" max="1000" step="1" value="1" /></div>
+              <div><label>最小阈值%</label><input id="scanMinPct" type="number" min="0" max="100" step="1" value="10" /></div>
+              <div><label>最大阈值%</label><input id="scanMaxPct" type="number" min="0" max="100" step="1" value="100" /></div>
+              <div><label>步长%</label><input id="scanStepPct" type="number" min="0.1" max="100" step="1" value="10" /></div>
+              <div><label>最低样本数</label><input id="scanMinSignals" type="number" min="1" max="100000" step="1" value="30" /></div>
+              <button onclick="runParameterScan()">运行参数扫描</button>
+              <button class="secondary" onclick="downloadScanCsv()">导出扫描CSV</button>
+            </div>
+            <div id="scanStatus" class="status">一次读取历史数据，批量比较多组量能阈值。</div>
+            <div class="scan-summary" id="scanSummary"></div>
+            <div class="table-wrap scan-table-wrap"><table id="scanTable"></table></div>
+          </div>
+        </details>
+        <div class="backtest-summary" id="backtestSummary"></div>
+        <h3>暗语大类胜率排行</h3>
+        <div class="table-wrap category-stats-wrap"><table id="categoryStatsTable"></table></div>
+        <div class="table-wrap backtest-table-wrap"><table id="backtestTable"></table></div>
+        <div class="log backtest-log" id="backtestLog"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/global-settings.js"></script>
+  <script src="/app-layout.js"></script>
+  <script>
+    let rows = [];
+    let latestMeta = {};
+    let sortState = {};
+    let backtestRows = [];
+    let scanRows = [];
+    let scanSortState = {};
+    let selectedCodes = new Set();
+    const cols = [
+      ["code","代码"],["name","名称"],["stock_type","股票类型"],["industry","行业"],
+      ["rank_industry","申万二级行业"],["market_cap_yi","总市值亿"],["industry_mv_rank","行业市值排名"],
+      ["low","实时最低价"],["code_categories","暗语大类"],["code_details","暗语明细"],
+      ["digit_string","数字串"],["code_count","命中数"],["low_days","新低天数"],
+      ["previous_window_low","此前窗口低点"],["low_gap_pct","低点突破%"],
+      ["latest_price","现价"],["pct_chg","涨跌%"],["open","今开"],["high","今高"],
+      ["volume_state","放缩量"],["volume_ratio","量能倍数"],["volume_change_pct","量能变化%"],
+      ["live_volume_wan_hands","当前量/万手"],["avg_volume_wan_hands","均量/万手"],
+      ["volume_days","均量天数"],["amount_yi","成交额/亿"],["data_source","数据源"]
+    ];
+    const defaultVisibleColumnKeys = ["code", "name", "rank_industry", "industry_mv_rank", "low", "volume_state"];
+    const requiredColumnKeys = new Set(["code", "name"]);
+    const columnStorageKey = "priceCodeLowVisibleColumns";
+    let visibleColumnKeys = loadVisibleColumns();
+    const backtestCols = [
+      ["signal_date","信号日"],["next_date","次日"],["code","代码"],["name","名称"],["industry","行业"],
+      ["rank_industry","申万二级行业"],["market_cap_yi","信号日总市值亿"],["industry_mv_rank","行业市值排名"],
+      ["signal_low","信号最低价"],["code_categories","暗语大类"],["code_details","暗语明细"],
+      ["signal_close","信号日收盘"],["signal_pct_chg","信号日涨跌%"],["next_close","次日收盘"],["next_return_pct","次日涨跌%"],
+      ["next_result","次日结果"],["volume_state","信号日放缩量"],["volume_ratio","量能倍数"],
+      ["previous_window_low","此前窗口低点"],["low_gap_pct","低点突破%"]
+    ];
+    const scanCols = [
+      ["rank","排名"],["low_days","新低N日"],["industry_mv_rank_top","行业市值前N"],["direction_text","方向"],["threshold_pct","阈值%"],
+      ["signal_count","信号数"],["stock_count","股票数"],["up_count","次日上涨"],
+      ["down_count","次日下跌"],["win_rate","胜率%"],
+      ["average_return_pct","平均涨跌%"],["median_return_pct","中位涨跌%"],
+      ["best_return_pct","最佳%"],["worst_return_pct","最差%"],
+      ["best_category","最佳暗语"],["best_category_win_rate","暗语胜率%"],
+      ["qualified","样本达标"],["positive_expectation","平均收益为正"]
+    ];
+    initializeBacktestDates();
+    renderColumnPicker();
+
+    function goStrategy(select) {
+      const target = select.value;
+      const current = window.location.pathname;
+      if (target && target !== current) window.location.href = target;
+    }
+
+    function payload() {
+      const dataSource = getGlobalDataSourcePayload();
+      if (!dataSource) return null;
+      const now = new Date();
+      const endDate = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,"0")}${String(now.getDate()).padStart(2,"0")}`;
+      const lowDays = Number(document.getElementById("lowDays").value) || 20;
+      const volumeDays = Number(document.getElementById("volumeDays").value) || 5;
+      const volumeThresholdPct = boundedInputNumber("volumeThresholdPct", 20, 0, 100);
+      return {
+        ...dataSource,
+        review_mode: "intraday",
+        end_date: endDate,
+        lookback_days: Math.max(40, lowDays + volumeDays + 10),
+        price_code_low_days: lowDays,
+        price_code_volume_days: volumeDays,
+        price_code_volume_filter: document.getElementById("volumeFilter").value,
+        price_code_volume_threshold_pct: volumeThresholdPct,
+        price_code_industry_mv_rank_top: boundedInputNumber("industryMvRankTop", 5, 0, 1000),
+        price_code_exclude_st: document.getElementById("excludeSt").checked,
+        price_code_exclude_chinext: document.getElementById("excludeChinext").checked,
+        price_code_exclude_star: document.getElementById("excludeStar").checked
+      };
+    }
+
+    async function runStrategy() {
+      const body = payload();
+      if (!body) return;
+      setStatus(`正在读取全市场实时行情，并筛选近 ${body.price_code_low_days} 日暗语新低...`);
+      try {
+        const res = await fetch("/api/price_code_low", {
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify(body)
+        });
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error || "筛选失败");
+        rows = data.rows || [];
+        selectedCodes = new Set();
+        latestMeta = data;
+        renderSummary();
+        renderTable();
+        document.getElementById("logBox").textContent = (data.logs || []).join("\n");
+        setStatus(`实时筛选完成，交易日 ${data.trade_date}，快照 ${data.snapshot_time}，共 ${rows.length} 只。`);
+      } catch (err) {
+        setStatus(`筛选失败：${err.message}`, true);
+      }
+    }
+
+    function renderSummary() {
+      const items = [
+        ["交易日", latestMeta.trade_date || ""],
+        ["快照时间", latestMeta.snapshot_time || ""],
+        ["新低窗口", `${latestMeta.low_days || ""}日`],
+        ["量能基准", `前${latestMeta.volume_days || ""}日均量`],
+        ["量能范围", volumeFilterText(latestMeta.volume_filter)],
+        ["量能阈值", `±${latestMeta.volume_threshold_pct ?? 20}%`],
+        ["二级行业市值", Number(latestMeta.industry_mv_rank_top) > 0 ? `前${latestMeta.industry_mv_rank_top}` : "未启用"],
+        ["市值数据日", latestMeta.industry_rank_trade_date || "未使用"],
+        ["过滤条件", filterText(latestMeta.filters)],
+        ["实时股票数", latestMeta.live_count ?? ""],
+        ["命中数量", latestMeta.count ?? rows.length]
+      ];
+      document.getElementById("summaryCards").innerHTML = items.map(([key,value]) => (
+        `<div class="metric"><span>${escapeHtml(key)}</span><strong>${escapeHtml(value)}</strong></div>`
+      )).join("");
+    }
+
+    function filterText(filters) {
+      if (!filters) return "";
+      const counts = filters.excluded_counts || {};
+      const values = [];
+      if (filters.exclude_st) values.push(`ST ${counts.st ?? 0}只`);
+      if (filters.exclude_chinext) values.push(`创业板 ${counts.chinext ?? 0}只`);
+      if (filters.exclude_star) values.push(`科创板 ${counts.star ?? 0}只`);
+      return values.length ? `已过滤${values.join("、")}` : "未过滤";
+    }
+
+    function renderTable() {
+      const displayCols = visibleCols();
+      const head = `<thead><tr><th><input id="selectAllRows" class="row-check" type="checkbox" onchange="selectAllRows(this.checked)" aria-label="全选当前结果" /></th>${displayCols.map(col=>`<th onclick="sortTable('${col[0]}')">${escapeHtml(col[1])} ${sortMark(col[0])}</th>`).join("")}<th>操作</th></tr></thead>`;
+      const body = rows.map((row,index) => (
+        `<tr><td><input class="row-check" type="checkbox" ${selectedCodes.has(String(row.code)) ? "checked" : ""} onchange="setRowSelected('${escapeAttr(row.code)}', this.checked)" aria-label="选择 ${escapeAttr(row.code)}" /></td>${displayCols.map(col=>`<td class="${col[0] === "code_details" ? "detail-cell" : ""}">${renderCell(row,col[0])}</td>`).join("")}<td><button class="mini-btn" onclick="copyRow(${index})">复制整行</button></td></tr>`
+      )).join("");
+      document.getElementById("resultTable").innerHTML = head + (
+        rows.length
+          ? `<tbody>${body}</tbody>`
+          : `<tbody><tr><td colspan="${displayCols.length + 2}">暂无符合条件的实时暗语新低</td></tr></tbody>`
+      );
+      updateSelectionUi();
+    }
+
+    function setRowSelected(code, checked) {
+      if (checked) selectedCodes.add(String(code));
+      else selectedCodes.delete(String(code));
+      updateSelectionUi();
+    }
+
+    function selectAllRows(checked) {
+      rows.forEach(row => {
+        if (checked) selectedCodes.add(String(row.code));
+        else selectedCodes.delete(String(row.code));
+      });
+      renderTable();
+    }
+
+    function updateSelectionUi() {
+      const count = rows.filter(row => selectedCodes.has(String(row.code))).length;
+      document.getElementById("selectionSummary").textContent = `已勾选 ${count} 只`;
+      const selectAll = document.getElementById("selectAllRows");
+      if (selectAll) {
+        selectAll.checked = rows.length > 0 && count === rows.length;
+        selectAll.indeterminate = count > 0 && count < rows.length;
+      }
+      updateBacktestScope();
+    }
+
+    function loadVisibleColumns() {
+      try {
+        const stored = JSON.parse(localStorage.getItem(columnStorageKey) || "null");
+        if (Array.isArray(stored)) {
+          const valid = new Set(cols.map(col => col[0]));
+          const selected = new Set(stored.filter(key => valid.has(key)));
+          requiredColumnKeys.forEach(key => selected.add(key));
+          return selected;
+        }
+      } catch (_) {}
+      return new Set(defaultVisibleColumnKeys);
+    }
+
+    function visibleCols() {
+      return cols.filter(([key]) => visibleColumnKeys.has(key));
+    }
+
+    function saveVisibleColumns() {
+      try {
+        localStorage.setItem(columnStorageKey, JSON.stringify([...visibleColumnKeys]));
+      } catch (_) {}
+    }
+
+    function renderColumnPicker() {
+      const choices = document.getElementById("columnChoices");
+      if (!choices) return;
+      choices.innerHTML = cols.map(([key, label]) => {
+        const required = requiredColumnKeys.has(key);
+        const checked = visibleColumnKeys.has(key) ? "checked" : "";
+        const disabled = required ? "disabled" : "";
+        const suffix = required ? "（固定）" : "";
+        return `<label class="column-option"><input type="checkbox" ${checked} ${disabled} onchange="setColumnVisible('${key}', this.checked)" /> ${escapeHtml(label + suffix)}</label>`;
+      }).join("");
+      document.getElementById("columnSummary").textContent = `已显示 ${visibleCols().length}/${cols.length} 列`;
+    }
+
+    function setColumnVisible(key, checked) {
+      if (requiredColumnKeys.has(key)) return;
+      if (checked) visibleColumnKeys.add(key);
+      else visibleColumnKeys.delete(key);
+      requiredColumnKeys.forEach(item => visibleColumnKeys.add(item));
+      saveVisibleColumns();
+      renderColumnPicker();
+      renderTable();
+    }
+
+    function resetVisibleColumns() {
+      visibleColumnKeys = new Set(defaultVisibleColumnKeys);
+      requiredColumnKeys.forEach(key => visibleColumnKeys.add(key));
+      saveVisibleColumns();
+      renderColumnPicker();
+      renderTable();
+    }
+
+    function showAllColumns() {
+      visibleColumnKeys = new Set(cols.map(col => col[0]));
+      saveVisibleColumns();
+      renderColumnPicker();
+      renderTable();
+    }
+
+    function renderCell(row, key) {
+      const value = row[key] ?? "";
+      if (key === "code") return `<span class="code-cell" onclick="copyText('${escapeAttr(value)}')">${escapeHtml(value)}</span>`;
+      if (key === "volume_state") {
+        const cls = String(value).startsWith("放量") ? "positive" : (String(value).startsWith("缩量") ? "warn" : "");
+        return `<span class="${cls}">${escapeHtml(value)}</span>`;
+      }
+      if (key === "low_gap_pct" || key === "pct_chg") {
+        return `<span class="${Number(value) >= 0 ? "positive" : "bad"}">${escapeHtml(value)}</span>`;
+      }
+      return escapeHtml(value);
+    }
+
+    function sortTable(key) {
+      const direction = sortState[key] === "asc" ? "desc" : "asc";
+      sortState = {[key]: direction};
+      rows.sort((a,b) => {
+        const sortKey = key === "volume_state" ? "volume_change_pct" : key;
+        const av = a[sortKey], bv = b[sortKey];
+        const an = Number(av), bn = Number(bv);
+        const result = Number.isFinite(an) && Number.isFinite(bn)
+          ? an - bn
+          : String(av ?? "").localeCompare(String(bv ?? ""), "zh-CN");
+        return direction === "asc" ? result : -result;
+      });
+      renderTable();
+    }
+
+    function sortMark(key) {
+      if (!sortState[key]) return "";
+      return sortState[key] === "asc" ? "▲" : "▼";
+    }
+
+    function copyAllCodes() {
+      copyText(rows.map(row => row.code).join("\n"));
+    }
+
+    function copySelectedCodes() {
+      const selected = rows.filter(row => selectedCodes.has(String(row.code)));
+      if (!selected.length) { alert("请先勾选股票"); return; }
+      copyText(selected.map(row => row.code).join("\n"));
+    }
+
+    function copyRow(index) {
+      const row = rows[index];
+      copyText(visibleCols().map(col => `${col[1]}:${row[col[0]] ?? ""}`).join("  "));
+    }
+
+    function copyText(text) {
+      if (text) navigator.clipboard.writeText(text);
+    }
+
+    function downloadCsv(selectedOnly=false) {
+      const exportRows = selectedOnly
+        ? rows.filter(row => selectedCodes.has(String(row.code)))
+        : rows;
+      if (!exportRows.length) {
+        alert(selectedOnly ? "请先勾选股票" : "暂无数据");
+        return;
+      }
+      const displayCols = visibleCols();
+      const csv = [displayCols.map(col => col[1]).join(",")].concat(exportRows.map(row => (
+        displayCols.map(col => `"${String(row[col[0]] ?? "").replaceAll('"','""')}"`).join(",")
+      ))).join("\n");
+      const blob = new Blob(["\ufeff" + csv], {type:"text/csv;charset=utf-8"});
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `price_code_low_${selectedOnly ? "selected_" : ""}${latestMeta.trade_date || "realtime"}.csv`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    function initializeBacktestDates() {
+      const end = new Date();
+      end.setDate(end.getDate() - 1);
+      const start = new Date(end);
+      start.setDate(start.getDate() - 60);
+      document.getElementById("backtestStartDate").value = dateText(start);
+      document.getElementById("backtestEndDate").value = dateText(end);
+    }
+
+    function dateText(value) {
+      return `${value.getFullYear()}${String(value.getMonth()+1).padStart(2,"0")}${String(value.getDate()).padStart(2,"0")}`;
+    }
+
+    function openBacktest() {
+      updateBacktestScope();
+      const modal = document.getElementById("backtestModal");
+      modal.classList.add("open");
+      modal.setAttribute("aria-hidden", "false");
+    }
+
+    function closeBacktest() {
+      const modal = document.getElementById("backtestModal");
+      modal.classList.remove("open");
+      modal.setAttribute("aria-hidden", "true");
+    }
+
+    function closeBacktestOnBackdrop(event) {
+      if (event.target.id === "backtestModal") closeBacktest();
+    }
+
+    async function runPriceCodeBacktest() {
+      const body = payload();
+      if (!body) return;
+      body.price_code_backtest_start_date = document.getElementById("backtestStartDate").value.trim();
+      body.price_code_backtest_end_date = document.getElementById("backtestEndDate").value.trim();
+      body.price_code_backtest_max_signal_days = Number(document.getElementById("backtestMaxDays").value) || 120;
+      body.price_code_backtest_codes = rows
+        .filter(row => selectedCodes.has(String(row.code)))
+        .map(row => String(row.code));
+      setBacktestStatus("正在生成历史暗语新低信号并读取次日收盘...");
+      try {
+        const res = await fetch("/api/price_code_low_backtest", {
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify(body)
+        });
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error || "回测失败");
+        backtestRows = data.rows || [];
+        renderBacktestSummary(data.summary || {});
+        renderBacktestTable();
+        document.getElementById("backtestLog").textContent = (data.logs || []).join("\n");
+        setBacktestStatus(`回测完成：${data.start_date} 至 ${data.end_date}，共 ${backtestRows.length} 个有效信号。`);
+      } catch (err) {
+        setBacktestStatus(`回测失败：${err.message}`, true);
+      }
+    }
+
+    async function runParameterScan() {
+      const body = payload();
+      if (!body) return;
+      body.price_code_backtest_start_date = document.getElementById("backtestStartDate").value.trim();
+      body.price_code_backtest_end_date = document.getElementById("backtestEndDate").value.trim();
+      body.price_code_backtest_max_signal_days = Number(document.getElementById("backtestMaxDays").value) || 120;
+      body.price_code_backtest_codes = selectedBacktestCodes();
+      body.price_code_scan_direction = document.getElementById("scanDirection").value;
+      body.price_code_scan_low_min_days = boundedInputNumber("scanLowMinDays", 10, 2, 250);
+      body.price_code_scan_low_max_days = boundedInputNumber("scanLowMaxDays", 50, 2, 250);
+      body.price_code_scan_low_step_days = boundedInputNumber("scanLowStepDays", 10, 1, 250);
+      body.price_code_scan_industry_rank_min = boundedInputNumber("scanIndustryRankMin", 1, 1, 1000);
+      body.price_code_scan_industry_rank_max = boundedInputNumber("scanIndustryRankMax", 5, 1, 1000);
+      body.price_code_scan_industry_rank_step = boundedInputNumber("scanIndustryRankStep", 1, 1, 1000);
+      body.price_code_scan_min_pct = boundedInputNumber("scanMinPct", 10, 0, 100);
+      body.price_code_scan_max_pct = boundedInputNumber("scanMaxPct", 100, 0, 100);
+      body.price_code_scan_step_pct = boundedInputNumber("scanStepPct", 10, 0.1, 100);
+      body.price_code_scan_min_signals = boundedInputNumber("scanMinSignals", 30, 1, 100000);
+      setScanStatus("正在读取一次历史数据并批量计算参数组合...");
+      try {
+        const res = await fetch("/api/price_code_low_scan", {
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify(body)
+        });
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error || "参数扫描失败");
+        scanRows = data.rows || [];
+        scanSortState = {};
+        renderScanSummary(data);
+        renderScanTable();
+        document.getElementById("backtestLog").textContent = (data.logs || []).join("\n");
+        setScanStatus(`扫描完成：${data.start_date} 至 ${data.end_date}，共比较 ${scanRows.length} 组参数。`);
+      } catch (err) {
+        setScanStatus(`参数扫描失败：${err.message}`, true);
+      }
+    }
+
+    function selectedBacktestCodes() {
+      return rows
+        .filter(row => selectedCodes.has(String(row.code)))
+        .map(row => String(row.code));
+    }
+
+    function renderScanSummary(data) {
+      const best = data.best_parameter;
+      const items = [
+        ["各N基础信号合计", data.base_signal_count ?? 0],
+        ["新低N组合", (data.low_days_values || []).join("、") || ""],
+        ["行业市值组合", (data.scan_industry_mv_rank_tops || []).map(value => `前${value}`).join("、") || ""],
+        ["行业排名步长", data.scan_industry_rank_step ?? 1],
+        ["参数组合", data.combination_count ?? 0],
+        ["样本达标", data.qualified_count ?? 0],
+        ["正收益候选", data.positive_candidate_count ?? 0],
+        ["最低样本数", data.min_signals ?? 0],
+        ["推荐参数", best
+          ? `${best.low_days}日新低｜行业市值前${best.industry_mv_rank_top}｜${best.direction_text}${best.threshold_pct}%｜胜率${best.win_rate}%｜${best.signal_count}个信号`
+          : "暂无正收益达标组合"]
+      ];
+      document.getElementById("scanSummary").innerHTML = items.map(([key,value]) => (
+        `<div class="metric"><span>${escapeHtml(key)}</span><strong>${escapeHtml(value)}</strong></div>`
+      )).join("");
+    }
+
+    function renderScanTable() {
+      const head = `<thead><tr>${scanCols.map(col=>`<th onclick="sortScanTable('${col[0]}')">${escapeHtml(col[1])} ${scanSortMark(col[0])}</th>`).join("")}</tr></thead>`;
+      const body = scanRows.length
+        ? `<tbody>${scanRows.map(row => `<tr>${scanCols.map(col => `<td>${renderScanCell(row, col[0])}</td>`).join("")}</tr>`).join("")}</tbody>`
+        : `<tbody><tr><td colspan="${scanCols.length}">暂无扫描结果</td></tr></tbody>`;
+      document.getElementById("scanTable").innerHTML = head + body;
+    }
+
+    function renderScanCell(row, key) {
+      const value = row[key] ?? "";
+      if (key === "qualified" || key === "positive_expectation") {
+        return `<span class="${value ? "positive" : "warn"}">${value ? "是" : "否"}</span>`;
+      }
+      if (key === "win_rate" || key === "average_return_pct" || key === "median_return_pct") {
+        const cls = Number(value) > 0 ? "positive" : (Number(value) < 0 ? "bad" : "");
+        return `<span class="${cls}">${escapeHtml(value)}</span>`;
+      }
+      return escapeHtml(value);
+    }
+
+    function sortScanTable(key) {
+      const direction = scanSortState[key] === "asc" ? "desc" : "asc";
+      scanSortState = {[key]: direction};
+      scanRows.sort((a,b) => {
+        const av = a[key], bv = b[key];
+        const an = Number(av), bn = Number(bv);
+        const result = Number.isFinite(an) && Number.isFinite(bn)
+          ? an - bn
+          : String(av ?? "").localeCompare(String(bv ?? ""), "zh-CN");
+        return direction === "asc" ? result : -result;
+      });
+      renderScanTable();
+    }
+
+    function scanSortMark(key) {
+      if (!scanSortState[key]) return "";
+      return scanSortState[key] === "asc" ? "▲" : "▼";
+    }
+
+    function downloadScanCsv() {
+      if (!scanRows.length) { alert("暂无参数扫描数据"); return; }
+      const csv = [scanCols.map(col => col[1]).join(",")].concat(scanRows.map(row => (
+        scanCols.map(col => `"${String(["qualified","positive_expectation"].includes(col[0]) ? (row[col[0]] ? "是" : "否") : (row[col[0]] ?? "")).replaceAll('"','""')}"`).join(",")
+      ))).join("\n");
+      const blob = new Blob(["\ufeff" + csv], {type:"text/csv;charset=utf-8"});
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `price_code_low_scan_${document.getElementById("backtestEndDate").value.trim() || "result"}.csv`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    function setScanStatus(text, bad=false) {
+      const element = document.getElementById("scanStatus");
+      element.textContent = text;
+      element.className = bad ? "status bad" : "status";
+    }
+
+    function renderBacktestSummary(summary) {
+      const best = summary.best_category;
+      const items = [
+        ["信号数", summary.signal_count ?? 0],
+        ["股票数", summary.stock_count ?? 0],
+        ["次日上涨", summary.up_count ?? 0],
+        ["次日下跌", summary.down_count ?? 0],
+        ["次日胜率", `${summary.win_rate ?? 0}%`],
+        ["平均涨跌", `${summary.average_return_pct ?? 0}%`],
+        ["中位涨跌", `${summary.median_return_pct ?? 0}%`],
+        ["最佳", `${summary.best_return_pct ?? 0}%`],
+        ["最差", `${summary.worst_return_pct ?? 0}%`],
+        ["最高胜率暗语", best ? `${best.category} ${best.win_rate}%（${best.signal_count}个信号）` : "暂无"]
+      ];
+      document.getElementById("backtestSummary").innerHTML = items.map(([key,value]) => (
+        `<div class="metric"><span>${escapeHtml(key)}</span><strong>${escapeHtml(value)}</strong></div>`
+      )).join("");
+      renderCategoryStats(summary.category_stats || []);
+    }
+
+    function renderCategoryStats(stats) {
+      const cols = [
+        ["category","暗语大类"],["signal_count","信号数"],["up_count","次日上涨"],
+        ["down_count","次日下跌"],["win_rate","胜率%"],
+        ["average_return_pct","平均涨跌%"],["median_return_pct","中位涨跌%"]
+      ];
+      const head = `<thead><tr>${cols.map(col => `<th>${escapeHtml(col[1])}</th>`).join("")}</tr></thead>`;
+      const body = stats.length
+        ? `<tbody>${stats.map((row, index) => `<tr>${cols.map(col => {
+            const value = row[col[0]] ?? "";
+            const cls = col[0] === "win_rate" && index === 0 ? "positive" : "";
+            return `<td><span class="${cls}">${escapeHtml(value)}</span></td>`;
+          }).join("")}</tr>`).join("")}</tbody>`
+        : `<tbody><tr><td colspan="${cols.length}">暂无暗语分类统计</td></tr></tbody>`;
+      document.getElementById("categoryStatsTable").innerHTML = head + body;
+    }
+
+    function updateBacktestScope() {
+      const element = document.getElementById("backtestScope");
+      if (!element) return;
+      const count = rows.filter(row => selectedCodes.has(String(row.code))).length;
+      const volumeText = volumeFilterText(document.getElementById("volumeFilter").value);
+      const volumeThresholdPct = boundedInputNumber("volumeThresholdPct", 20, 0, 100);
+      const industryMvRankTop = boundedInputNumber("industryMvRankTop", 5, 0, 1000);
+      const industryRankText = industryMvRankTop > 0
+        ? `申万二级行业市值前${industryMvRankTop}`
+        : "不限制行业市值排名";
+      element.textContent = count
+        ? `回测范围：已勾选 ${count} 只股票；量能条件：${volumeText}，变化阈值±${volumeThresholdPct}%；${industryRankText}。`
+        : `回测范围：未勾选股票，将回测全市场；量能条件：${volumeText}，变化阈值±${volumeThresholdPct}%；${industryRankText}。`;
+    }
+
+    function volumeFilterText(value) {
+      if (value === "expand") return "只看放量";
+      if (value === "shrink") return "只看缩量";
+      return "全部量能";
+    }
+
+    function boundedInputNumber(id, fallback, minimum, maximum) {
+      const value = Number(document.getElementById(id)?.value);
+      if (!Number.isFinite(value)) return fallback;
+      return Math.max(minimum, Math.min(maximum, value));
+    }
+
+    function renderBacktestTable() {
+      const head = `<thead><tr>${backtestCols.map(col=>`<th>${escapeHtml(col[1])}</th>`).join("")}</tr></thead>`;
+      const body = backtestRows.length
+        ? `<tbody>${backtestRows.map(row => `<tr>${backtestCols.map(col => `<td class="${col[0] === "code_details" ? "detail-cell" : ""}">${renderBacktestCell(row, col[0])}</td>`).join("")}</tr>`).join("")}</tbody>`
+        : `<tbody><tr><td colspan="${backtestCols.length}">暂无历史信号</td></tr></tbody>`;
+      document.getElementById("backtestTable").innerHTML = head + body;
+    }
+
+    function renderBacktestCell(row, key) {
+      const value = row[key] ?? "";
+      if (key === "code") return `<span class="code-cell">${escapeHtml(value)}</span>`;
+      if (key === "next_return_pct") {
+        const number = Number(value);
+        return `<span class="${number > 0 ? "positive" : (number < 0 ? "bad" : "")}">${escapeHtml(value)}</span>`;
+      }
+      if (key === "next_result") {
+        return `<span class="${value === "上涨" ? "positive" : (value === "下跌" ? "bad" : "")}">${escapeHtml(value)}</span>`;
+      }
+      if (key === "volume_state") {
+        return `<span class="${String(value).startsWith("放量") ? "positive" : "warn"}">${escapeHtml(value)}</span>`;
+      }
+      return escapeHtml(value);
+    }
+
+    function downloadBacktestCsv() {
+      if (!backtestRows.length) { alert("暂无回测数据"); return; }
+      const csv = [backtestCols.map(col => col[1]).join(",")].concat(backtestRows.map(row => (
+        backtestCols.map(col => `"${String(row[col[0]] ?? "").replaceAll('"','""')}"`).join(",")
+      ))).join("\n");
+      const blob = new Blob(["\ufeff" + csv], {type:"text/csv;charset=utf-8"});
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `price_code_low_backtest_${document.getElementById("backtestEndDate").value.trim() || "result"}.csv`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    function setBacktestStatus(text, bad=false) {
+      const element = document.getElementById("backtestStatus");
+      element.textContent = text;
+      element.className = bad ? "status bad" : "status";
+    }
+
+    function setStatus(text, bad=false) {
+      const element = document.getElementById("status");
+      element.textContent = text;
+      element.className = bad ? "status bad" : "status";
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/[&<>"']/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[char]));
+    }
+
+    function escapeAttr(value) {
+      return String(value ?? "").replace(/['\\]/g, "\\$&");
+    }
+
+    async function openHelp() {
+      const modal = document.getElementById("helpModal");
+      modal.classList.add("open");
+      modal.setAttribute("aria-hidden", "false");
+      const body = document.getElementById("helpBody");
+      if (body.dataset.loaded === "1") return;
+      try {
+        const res = await fetch(`/docs/price-code-low.md?t=${Date.now()}`, {cache:"no-store"});
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        body.innerHTML = renderMarkdown(await res.text());
+        body.dataset.loaded = "1";
+      } catch (err) {
+        body.textContent = `说明读取失败：${err.message}`;
+      }
+    }
+
+    function renderMarkdown(markdown) {
+      const lines = String(markdown || "").replace(/\r\n/g, "\n").split("\n");
+      const html = [];
+      let listType = "";
+      function closeList() {
+        if (listType) {
+          html.push(`</${listType}>`);
+          listType = "";
+        }
+      }
+      function openList(type) {
+        if (listType !== type) {
+          closeList();
+          html.push(`<${type}>`);
+          listType = type;
+        }
+      }
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed) { closeList(); continue; }
+        const heading = trimmed.match(/^(#{1,3})\s+(.+)$/);
+        if (heading) {
+          closeList();
+          html.push(`<h${heading[1].length}>${renderMarkdownInline(heading[2])}</h${heading[1].length}>`);
+          continue;
+        }
+        const unordered = trimmed.match(/^[-*]\s+(.+)$/);
+        if (unordered) {
+          openList("ul");
+          html.push(`<li>${renderMarkdownInline(unordered[1])}</li>`);
+          continue;
+        }
+        const ordered = trimmed.match(/^\d+\.\s+(.+)$/);
+        if (ordered) {
+          openList("ol");
+          html.push(`<li>${renderMarkdownInline(ordered[1])}</li>`);
+          continue;
+        }
+        closeList();
+        html.push(`<p>${renderMarkdownInline(trimmed)}</p>`);
+      }
+      closeList();
+      return html.join("");
+    }
+
+    function renderMarkdownInline(text) {
+      return escapeHtml(text)
+        .replace(/`([^`]+)`/g, "<code>$1</code>")
+        .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+    }
+
+    function closeHelp() {
+      const modal = document.getElementById("helpModal");
+      modal.classList.remove("open");
+      modal.setAttribute("aria-hidden", "true");
+    }
+
+    function closeHelpOnBackdrop(event) {
+      if (event.target.id === "helpModal") closeHelp();
+    }
+
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape") {
+        closeHelp();
+        closeBacktest();
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>市场排名工具</title>
+  <style>
+    :root { --bg:#f6f7f9; --panel:#fff; --text:#172033; --muted:#657084; --line:#dfe3ea; --accent:#1769e0; --good:#087f5b; --bad:#c92a2a; --ink:#101828; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:"Microsoft YaHei", Arial, sans-serif; color:var(--text); background:var(--bg); }
+    header { background:var(--panel); border-bottom:1px solid var(--line); padding:14px 18px; }
+    .topbar { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; }
+    h1 { margin:0; font-size:20px; line-height:1.25; }
+    .header-actions { display:flex; align-items:center; gap:8px; }
+    .strategy-nav { width:210px; }
+    .controls { display:grid; grid-template-columns:repeat(6, minmax(130px, 1fr)); gap:10px; align-items:end; }
+    label { display:block; font-size:12px; color:var(--muted); margin-bottom:4px; }
+    input, select { width:100%; height:34px; border:1px solid var(--line); border-radius:6px; padding:0 8px; background:#fff; color:var(--text); }
+    button { height:34px; border:0; border-radius:6px; background:var(--accent); color:#fff; font-weight:700; cursor:pointer; padding:0 14px; }
+    button.secondary { background:#354052; }
+    button.ghost { background:#fff; color:var(--accent); border:1px solid var(--accent); }
+    button.mini-btn { height:26px; border-radius:5px; padding:0 8px; font-size:12px; background:#fff; color:var(--accent); border:1px solid var(--accent); font-weight:700; }
+    main { padding:14px 18px 28px; }
+    .status { color:var(--muted); margin:8px 0 12px; }
+    .bad { color:var(--bad); font-weight:700; }
+    .positive { color:var(--good); font-weight:800; }
+    .cards { display:grid; grid-template-columns:repeat(5, minmax(140px, 1fr)); gap:10px; margin:0 0 12px; }
+    .metric { background:#fff; border:1px solid var(--line); border-radius:8px; padding:12px; min-height:78px; }
+    .metric span { display:block; color:var(--muted); font-size:12px; margin-bottom:6px; }
+    .metric strong { display:block; font-size:18px; line-height:1.3; overflow-wrap:anywhere; }
+    .toolbar { display:flex; gap:8px; flex-wrap:wrap; margin:0 0 12px; }
+    .table-wrap { background:#fff; border:1px solid var(--line); border-radius:8px; overflow:auto; max-height:calc(100vh - 300px); position:relative; }
+    table { width:100%; border-collapse:collapse; min-width:980px; }
+    th, td { padding:9px 10px; border-bottom:1px solid var(--line); text-align:center; font-size:13px; white-space:nowrap; }
+    th { position:sticky; top:0; background:#f0f3f7; cursor:pointer; user-select:none; z-index:3; }
+    .rank-cell { font-weight:800; color:var(--accent); }
+    .industry-cell { text-align:left; font-weight:800; }
+    .log { margin-top:12px; background:var(--ink); color:#d7e2f1; border-radius:8px; padding:12px; height:160px; overflow:auto; white-space:pre-wrap; }
+    @media (max-width:900px) {
+      .topbar { align-items:flex-start; flex-direction:column; }
+      .header-actions { width:100%; }
+      .strategy-nav { flex:1; width:auto; }
+      .controls { grid-template-columns:repeat(2, minmax(130px, 1fr)); }
+      .cards { grid-template-columns:repeat(2, minmax(130px, 1fr)); }
+      h1 { font-size:18px; }
+    }
+  </style>
+  <link rel="stylesheet" href="/app-layout.css" />
+</head>
+<body>
+  <header>
+    <div class="topbar">
+      <h1>市场排名工具</h1>
+      <div class="header-actions">
+        <select id="strategyNav" class="strategy-nav" onchange="goStrategy(this)" aria-label="策略切换">
+          <option value="/">大盘总览</option>
+          <option value="/mainline-review">主线复盘策略</option>
+          <option value="/concept-radar">同花顺概念雷达</option>
+          <option value="/first-limit">涨停板策略</option>
+          <option value="/first-wave">第一波启动策略</option>
+          <option value="/canslim-tao">CANSLIM+RPS策略</option>
+          <option value="/value-fcf">低估值现金流策略</option>
+          <option value="/dividend-low-vol">红利低波防守策略</option>
+          <option value="/price-code-low">低价暗语新低策略</option>
+          <option value="/industry-market-cap-rank" selected>市场排名工具</option>
+          <option value="/stock-search">股票模糊搜索</option>
+          <option value="/realtime-ma">批量实时MA检查</option>
+        </select>
+      </div>
+    </div>
+    <div class="controls">
+      <div><label>数据模式</label><select id="reviewMode"><option value="after_close">盘后收盘</option><option value="intraday">盘中实时</option></select></div>
+      <div><label>日期 YYYYMMDD</label><input id="endDate" /></div>
+      <div>
+        <label>排名类型</label>
+        <select id="rankType" onchange="syncRankControls()">
+          <option value="industry_market_cap" selected>行业总市值排名</option>
+          <option value="stock_market_cap">个股总市值排名</option>
+          <option value="stock_price">个股股价排名</option>
+        </select>
+      </div>
+      <div>
+        <label>申万行业级别</label>
+        <select id="rankLevel">
+          <option value="sw_l2" selected>申万二级</option>
+          <option value="sw_l1">申万一级</option>
+        </select>
+      </div>
+      <button onclick="runRank()">刷新排名</button>
+      <button class="secondary" onclick="downloadCsv()">导出CSV</button>
+      <button class="ghost" onclick="copyTopRows()">复制前10</button>
+    </div>
+    <div id="status" class="status">选择排名类型后刷新排名。</div>
+  </header>
+  <main>
+    <div class="cards" id="summaryCards"></div>
+    <div class="toolbar">
+      <button onclick="runRank()">刷新</button>
+      <button class="secondary" onclick="downloadCsv()">导出CSV</button>
+      <button class="ghost" onclick="copyTopRows()">复制前10</button>
+    </div>
+    <div class="table-wrap"><table id="resultTable"></table></div>
+    <div class="log" id="logBox"></div>
+  </main>
+
+  <script src="/global-settings.js"></script>
+  <script src="/app-layout.js"></script>
+  <script>
+    let rows = [];
+    let latestMeta = {};
+    let sortState = { key: "rank", dir: "asc" };
+    const columnSets = {
+      industry_market_cap: [
+        ["rank", "排名"],
+        ["rank_industry", "行业"],
+        ["rank_industry_code", "行业代码"],
+        ["total_market_cap_yi", "总市值亿"],
+        ["member_count", "成分股数"],
+        ["priced_member_count", "有市值数"],
+        ["avg_market_cap_yi", "平均市值亿"]
+      ],
+      stock_market_cap: [
+        ["rank", "排名"],
+        ["code", "代码"],
+        ["name", "名称"],
+        ["stock_type", "股票类型"],
+        ["industry", "行业"],
+        ["total_market_cap_yi", "总市值亿"],
+        ["close", "价格"],
+        ["pct_chg", "涨跌%"],
+        ["trade_date", "行情日期"]
+      ],
+      stock_price: [
+        ["rank", "排名"],
+        ["code", "代码"],
+        ["name", "名称"],
+        ["stock_type", "股票类型"],
+        ["industry", "行业"],
+        ["close", "价格"],
+        ["pct_chg", "涨跌%"],
+        ["total_market_cap_yi", "总市值亿"],
+        ["trade_date", "行情日期"]
+      ]
+    };
+
+    initializeDate();
+    syncRankControls();
+    renderTable();
+
+    function initializeDate() {
+      const now = new Date();
+      document.getElementById("endDate").value = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,"0")}${String(now.getDate()).padStart(2,"0")}`;
+    }
+
+    function goStrategy(select) {
+      const target = select.value;
+      const current = window.location.pathname === "/index.html" ? "/" : window.location.pathname;
+      if (target && target !== current) window.location.href = target;
+    }
+
+    async function runRank() {
+      const dataSource = getGlobalDataSourcePayload();
+      if (!dataSource) return;
+      const rankType = document.getElementById("rankType").value;
+      setStatus(rankType === "industry_market_cap" ? "正在读取申万行业成分和总市值..." : "正在读取个股市值和价格数据...");
+      const payload = {
+        ...dataSource,
+        review_mode: document.getElementById("reviewMode").value,
+        end_date: document.getElementById("endDate").value.trim(),
+        industry_market_cap_rank_level: document.getElementById("rankLevel").value,
+        industry_market_cap_rank_type: rankType
+      };
+      try {
+        const res = await fetch("/api/industry_market_cap_rank", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error || "排名失败");
+        rows = data.rows || [];
+        latestMeta = data;
+        sortState = { key: "rank", dir: "asc" };
+        renderSummary();
+        renderTable();
+        document.getElementById("logBox").textContent = (data.logs || []).join("\n");
+        setStatus(`排名完成，${data.rank_type_label || ""}，${data.data_source || ""}，市值数据日 ${data.market_cap_trade_date}，共 ${rows.length} 条。`);
+      } catch (err) {
+        setStatus(`排名失败：${err.message}`, true);
+      }
+    }
+
+    function renderSummary() {
+      const items = [
+        ["排名类型", latestMeta.rank_type_label || rankTypeLabel()],
+        ["数据模式", document.getElementById("reviewMode").selectedOptions[0]?.textContent || ""],
+        ["交易日", latestMeta.trade_date || ""],
+        ["行情来源", latestMeta.data_source || ""],
+        ["市值数据日", latestMeta.market_cap_trade_date || ""],
+        ["记录数量", latestMeta.count ?? rows.length],
+        ["全市场合计", formatNumber(latestMeta.total_market_cap_yi, 2) + "亿"]
+      ];
+      document.getElementById("summaryCards").innerHTML = items.map(([key, value]) => (
+        `<div class="metric"><span>${escapeHtml(key)}</span><strong>${escapeHtml(value)}</strong></div>`
+      )).join("");
+    }
+
+    function renderTable() {
+      const cols = currentCols();
+      const head = `<thead><tr>${cols.map(col => `<th onclick="sortTable('${col[0]}')">${escapeHtml(col[1])} ${sortMark(col[0])}</th>`).join("")}<th>操作</th></tr></thead>`;
+      const body = rows.length
+        ? `<tbody>${rows.map((row, index) => `<tr>${cols.map(col => `<td>${renderCell(row, col[0])}</td>`).join("")}<td><button class="mini-btn" onclick="copyRow(${index})">复制整行</button></td></tr>`).join("")}</tbody>`
+        : `<tbody><tr><td colspan="${cols.length + 1}">暂无排名数据</td></tr></tbody>`;
+      document.getElementById("resultTable").innerHTML = head + body;
+    }
+
+    function renderCell(row, key) {
+      const value = row[key] ?? "";
+      if (key === "rank") return `<span class="rank-cell">${escapeHtml(value)}</span>`;
+      if (key === "rank_industry" || key === "name") return `<span class="industry-cell">${escapeHtml(value)}</span>`;
+      if (["total_market_cap_yi", "avg_market_cap_yi", "close", "pct_chg"].includes(key)) return `<span class="positive">${formatNumber(value, 2)}</span>`;
+      return escapeHtml(value);
+    }
+
+    function sortMark(key) {
+      if (sortState.key !== key) return "";
+      return sortState.dir === "asc" ? "▲" : "▼";
+    }
+
+    function sortTable(key) {
+      const dir = sortState.key === key && sortState.dir === "asc" ? "desc" : "asc";
+      sortState = { key, dir };
+      rows.sort((a, b) => compareCell(a[key], b[key], dir));
+      renderTable();
+    }
+
+    function compareCell(a, b, dir) {
+      const na = parseFloat(a), nb = parseFloat(b);
+      const result = (!Number.isNaN(na) && !Number.isNaN(nb)) ? na - nb : String(a ?? "").localeCompare(String(b ?? ""), "zh-Hans-CN");
+      return dir === "asc" ? result : -result;
+    }
+
+    async function copyRow(index) {
+      const row = rows[index];
+      if (!row) return;
+      const cols = currentCols();
+      const header = cols.map(col => col[1]).join("\t");
+      const line = cols.map(col => String(row[col[0]] ?? "").replace(/\s+/g, " ").trim()).join("\t");
+      await navigator.clipboard.writeText(`${header}\n${line}`);
+      setStatus("已复制整行数据和表头。");
+    }
+
+    async function copyTopRows() {
+      const rankType = document.getElementById("rankType").value;
+      const names = rows.slice(0, 10).map(row => {
+        if (rankType === "industry_market_cap") return `${row.rank}. ${row.rank_industry} ${row.total_market_cap_yi}亿`;
+        if (rankType === "stock_market_cap") return `${row.rank}. ${row.code} ${row.name} ${row.total_market_cap_yi}亿`;
+        return `${row.rank}. ${row.code} ${row.name} ${row.close}元`;
+      });
+      if (!names.length) { alert("暂无数据"); return; }
+      await navigator.clipboard.writeText(names.join("\n"));
+      setStatus(`已复制前 ${names.length} 条。`);
+    }
+
+    function downloadCsv() {
+      if (!rows.length) { alert("暂无数据"); return; }
+      const cols = currentCols();
+      const csv = [cols.map(col => col[1]).join(",")]
+        .concat(rows.map(row => cols.map(col => `"${String(row[col[0]] ?? "").replaceAll('"','""')}"`).join(",")))
+        .join("\n");
+      const blob = new Blob(["\ufeff" + csv], {type:"text/csv;charset=utf-8"});
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `market_rank_${latestMeta.rank_type || document.getElementById("rankType").value}_${latestMeta.rank_level || "all"}_${new Date().toISOString().slice(0,10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    function currentCols() {
+      return columnSets[document.getElementById("rankType").value] || columnSets.industry_market_cap;
+    }
+
+    function rankTypeLabel() {
+      return document.getElementById("rankType").selectedOptions[0]?.textContent || "";
+    }
+
+    function syncRankControls() {
+      const isIndustry = document.getElementById("rankType").value === "industry_market_cap";
+      document.getElementById("rankLevel").disabled = !isIndustry;
+      rows = [];
+      latestMeta = {};
+      sortState = { key: "rank", dir: "asc" };
+      renderSummary();
+      renderTable();
+      setStatus(isIndustry ? "行业总市值排名会按申万行业聚合。" : "个股排名支持盘后收盘和盘中实时，盘中实时会优先使用实时行情。");
+    }
+
+    function setStatus(text, bad=false) {
+      const el = document.getElementById("status");
+      el.textContent = text;
+      el.className = bad ? "status bad" : "status";
+    }
+
+    function formatNumber(value, digits=2) {
+      const number = Number(value);
+      return Number.isFinite(number) ? number.toFixed(digits) : "";
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch]));
+    }
+  </script>
+</body>
+</html>

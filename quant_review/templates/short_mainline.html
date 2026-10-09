@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>短线主线稳定爆发策略</title>
+  <style>
+    :root { --bg:#f6f7f9; --panel:#fff; --text:#172033; --muted:#657084; --line:#dfe3ea; --accent:#1769e0; --good:#087f5b; --warn:#b7791f; --bad:#c92a2a; --ink:#101828; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:"Microsoft YaHei", Arial, sans-serif; color:var(--text); background:var(--bg); }
+    header { background:var(--panel); border-bottom:1px solid var(--line); padding:14px 18px; }
+    .topbar { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; }
+    h1 { margin:0; font-size:20px; line-height:1.25; }
+    .header-actions { display:flex; align-items:center; gap:8px; }
+    .strategy-nav { width:220px; }
+    .control-sections { display:grid; grid-template-columns:repeat(2, minmax(280px, 1fr)); gap:10px; }
+    .section-panel { background:#fff; border:1px solid var(--line); border-radius:8px; overflow:hidden; }
+    .section-panel > summary { display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:40px; padding:9px 12px; cursor:pointer; font-size:14px; font-weight:800; color:var(--text); list-style:none; }
+    .section-panel > summary::-webkit-details-marker { display:none; }
+    .section-panel > summary::after { content:"+"; color:var(--accent); font-size:18px; line-height:1; }
+    .section-panel[open] > summary::after { content:"-"; }
+    .summary-note { color:var(--muted); font-size:12px; font-weight:400; }
+    .controls { display:grid; grid-template-columns:repeat(4, minmax(125px, 1fr)); gap:10px; align-items:end; border-top:1px solid var(--line); padding:10px; }
+    label { display:block; font-size:12px; color:var(--muted); margin-bottom:4px; }
+    input, select { width:100%; height:34px; border:1px solid var(--line); border-radius:6px; padding:0 8px; background:#fff; color:var(--text); }
+    .check { height:34px; display:flex; align-items:center; gap:8px; border:1px solid var(--line); border-radius:6px; padding:0 8px; background:#fff; color:var(--text); font-size:13px; }
+    .check input { width:auto; height:auto; }
+    button { height:34px; border:0; border-radius:6px; background:var(--accent); color:#fff; font-weight:700; cursor:pointer; padding:0 14px; }
+    button.secondary { background:#354052; }
+    button.ghost { background:#fff; color:var(--accent); border:1px solid var(--accent); }
+    button.mini-btn { height:26px; padding:0 8px; font-size:12px; border-radius:5px; background:#eef4ff; color:var(--accent); border:1px solid #b8cff8; }
+    main { padding:14px 18px 28px; }
+    .status { color:var(--muted); margin:8px 0 0; }
+    .bad { color:var(--bad); font-weight:700; }
+    .cards { display:grid; grid-template-columns:repeat(5, minmax(140px, 1fr)); gap:10px; margin:0 0 12px; }
+    .metric { background:#fff; border:1px solid var(--line); border-radius:8px; padding:12px; min-height:78px; }
+    .metric span { display:block; color:var(--muted); font-size:12px; margin-bottom:6px; }
+    .metric strong { display:block; font-size:18px; line-height:1.3; overflow-wrap:anywhere; }
+    .metric.wide { grid-column:span 2; }
+    .toolbar { display:flex; gap:8px; flex-wrap:wrap; margin:0 0 12px; }
+    .table-wrap { background:#fff; border:1px solid var(--line); border-radius:8px; overflow:auto; max-height:calc(100vh - 330px); position:relative; margin-bottom:12px; }
+    table { width:100%; border-collapse:collapse; min-width:1180px; }
+    th, td { padding:9px 10px; border-bottom:1px solid var(--line); text-align:center; font-size:13px; white-space:nowrap; }
+    th { position:sticky; top:0; background:#f0f3f7; cursor:pointer; user-select:none; z-index:3; }
+    .freeze th:nth-child(1), .freeze td:nth-child(1) { position:sticky; left:0; z-index:2; min-width:88px; background:var(--app-bg, #fff); box-shadow:1px 0 0 var(--line); }
+    .freeze th:nth-child(2), .freeze td:nth-child(2) { position:sticky; left:88px; z-index:2; min-width:120px; background:var(--app-bg, #fff); box-shadow:1px 0 0 var(--line); }
+    .freeze th:nth-child(1), .freeze th:nth-child(2) { z-index:5; background:var(--app-panel, #f0f3f7); }
+    .state-hot { color:var(--good); font-weight:900; }
+    .state-watch { color:var(--warn); font-weight:900; }
+    .cell-good { color:#059669; font-weight:900; }
+    .cell-warn { color:#d97706; font-weight:900; }
+    .cell-bad { color:#dc2626; font-weight:900; }
+    .code-cell { color:var(--accent); font-weight:900; cursor:pointer; }
+    .log { margin-top:12px; background:var(--ink); color:#d7e2f1; border-radius:8px; padding:12px; height:170px; overflow:auto; white-space:pre-wrap; }
+    h2 { margin:16px 0 10px; font-size:16px; }
+    @media (max-width:900px) {
+      .topbar { align-items:flex-start; flex-direction:column; }
+      .header-actions { width:100%; }
+      .strategy-nav { flex:1; width:auto; }
+      .control-sections { grid-template-columns:1fr; }
+      .controls { grid-template-columns:repeat(2, minmax(130px, 1fr)); }
+      .cards { grid-template-columns:repeat(2, minmax(130px, 1fr)); }
+      .metric.wide { grid-column:span 2; }
+      h1 { font-size:18px; }
+    }
+  </style>
+  <link rel="stylesheet" href="/app-layout.css" />
+</head>
+<body>
+  <header>
+    <div class="topbar">
+      <h1>短线主线稳定爆发策略</h1>
+      <div class="header-actions">
+        <select id="strategyNav" class="strategy-nav" onchange="goStrategy(this)" aria-label="策略切换">
+          <option value="/">大盘总览</option>
+          <option value="/mainline-review">主线复盘策略</option>
+          <option value="/concept-radar">同花顺概念雷达</option>
+          <option value="/first-limit">涨停板策略</option>
+          <option value="/first-wave">第一波启动策略</option>
+          <option value="/short-mainline" selected>短线主线稳定爆发</option>
+          <option value="/canslim-tao">CANSLIM+RPS策略</option>
+          <option value="/canslim-early">CANSLIM早期防钝化</option>
+          <option value="/value-fcf">低估值现金流策略</option>
+          <option value="/dividend-low-vol">红利低波防守策略</option>
+          <option value="/price-code-low">低价暗语新低策略</option>
+          <option value="/industry-market-cap-rank">市场排名工具</option>
+          <option value="/stock-search">股票模糊搜索</option>
+          <option value="/realtime-ma">批量实时MA检查</option>
+        </select>
+      </div>
+    </div>
+    <details class="section-panel filter-panel" id="filterPanel" open>
+      <summary>策略参数 <span class="summary-note">默认抓少数刚稳定爆发主线</span></summary>
+      <div class="control-sections">
+        <details class="section-panel" open>
+          <summary>运行与输出 <span class="summary-note">数量上限决定结果是否收敛</span></summary>
+          <div class="controls">
+            <div><label>数据模式</label><select id="reviewMode"><option value="after_close">盘后收盘</option><option value="intraday">盘中实时</option></select></div>
+            <div><label>日期 YYYYMMDD</label><input id="endDate" /></div>
+            <div><label>主线行业数</label><input id="topIndustryCount" type="number" value="5" /></div>
+            <div><label>每条主线股票数</label><input id="stocksPerIndustry" type="number" value="4" /></div>
+            <div><label>总股票数上限</label><input id="topCount" type="number" value="20" /></div>
+            <button onclick="runStrategy()">开始扫描</button>
+            <button class="secondary" onclick="downloadCsv()">导出股票CSV</button>
+            <button class="ghost" onclick="copyAllCodes()">复制全部代码</button>
+          </div>
+        </details>
+        <details class="section-panel">
+          <summary>行业主线门槛 <span class="summary-note">二级行业先入围</span></summary>
+          <div class="controls">
+            <div><label>最少成分股</label><input id="minIndustryMembers" type="number" value="8" /></div>
+            <div><label>行业RPS5</label><input id="minIndustryRps5" type="number" value="88" /></div>
+            <div><label>行业RPS10</label><input id="minIndustryRps10" type="number" value="82" /></div>
+            <div><label>行业RPS20</label><input id="minIndustryRps20" type="number" value="70" /></div>
+            <div><label>行业RPS60上限</label><input id="maxIndustryRps60" type="number" value="90" /></div>
+            <div><label>RPS5-20差值</label><input id="minIndustryRpsGap" type="number" value="8" /></div>
+            <div><label>行业量能倍数</label><input id="minIndustryAmountRatio" type="number" step="0.01" value="1.12" /></div>
+            <div><label>上涨比例%</label><input id="minIndustryUpRatio" type="number" value="52" /></div>
+            <div><label>最少强股数</label><input id="minStrongStocks" type="number" value="3" /></div>
+          </div>
+        </details>
+        <details class="section-panel">
+          <summary>个股落点门槛 <span class="summary-note">只从入围行业内选</span></summary>
+          <div class="controls">
+            <div><label>个股RPS5</label><input id="minStockRps5" type="number" value="85" /></div>
+            <div><label>个股RPS10</label><input id="minStockRps10" type="number" value="80" /></div>
+            <div><label>个股RPS20</label><input id="minStockRps20" type="number" value="65" /></div>
+            <div><label>个股RPS60</label><input id="minStockRps60" type="number" value="40" /></div>
+            <div><label>最低成交额亿</label><input id="minStockAmount" type="number" step="0.1" value="1" /></div>
+            <div><label>量能倍数</label><input id="minStockAmountRatio" type="number" step="0.01" value="1.05" /></div>
+            <div><label>距MA20上限%</label><input id="maxStockDistanceMa20" type="number" value="15" /></div>
+            <div><label>10日涨幅上限%</label><input id="maxStockRet10" type="number" value="35" /></div>
+          </div>
+        </details>
+        <details class="section-panel">
+          <summary>概念与排除项 <span class="summary-note">概念只做增强，不做主宇宙</span></summary>
+          <div class="controls">
+            <label class="check"><input id="conceptEnabled" type="checkbox" checked /> 启用概念共振</label>
+            <div><label>概念最少强股数</label><input id="minConceptStocks" type="number" value="2" /></div>
+            <label class="check"><input id="excludeSt" type="checkbox" checked /> 排除ST</label>
+            <label class="check"><input id="excludeStar" type="checkbox" checked /> 排除科创板</label>
+            <label class="check"><input id="excludeChinext" type="checkbox" checked /> 排除创业板</label>
+          </div>
+        </details>
+      </div>
+    </details>
+    <div id="status" class="status">等待扫描。</div>
+  </header>
+  <main>
+    <div class="cards" id="summaryCards"></div>
+    <div class="toolbar">
+      <button onclick="runStrategy()">刷新</button>
+      <button class="ghost" onclick="copyAllCodes()">复制全部代码</button>
+      <button class="ghost" onclick="copyIndustries()">复制主线行业</button>
+      <button class="secondary" onclick="downloadCsv()">导出股票CSV</button>
+    </div>
+    <h2>主线行业</h2>
+    <div class="table-wrap keep-mobile-table" data-mobile-cards="off"><table id="industryTable" data-mobile-cards="off"></table></div>
+    <h2>行业内个股</h2>
+    <div class="table-wrap keep-mobile-table" data-mobile-cards="off"><table id="resultTable" class="freeze" data-mobile-cards="off"></table></div>
+    <details class="section-panel" id="logPanel" style="margin-top:12px;">
+      <summary>运行日志 <span class="summary-note">默认收起，排查数据时展开</span></summary>
+      <div class="log" id="logBox" style="margin:0; border:0; border-top:1px solid var(--line); border-radius:0;"></div>
+    </details>
+  </main>
+
+  <script src="/global-settings.js"></script>
+  <script src="/app-layout.js"></script>
+  <script>
+    const today = new Date();
+    document.getElementById("endDate").value = `${today.getFullYear()}${String(today.getMonth()+1).padStart(2,"0")}${String(today.getDate()).padStart(2,"0")}`;
+    let rows = [];
+    let industries = [];
+    let latestMarket = {};
+    let sortState = {key:"score", dir:"desc"};
+    const stockCols = [
+      ["code","代码"],["name","名称"],["industry","二级行业"],["industry_state","主线状态"],["strong_concepts","强概念"],["role","角色"],["score","分数"],
+      ["close","收盘"],["pct_chg","涨跌%"],["amount_yi","成交额亿"],["amount_ratio","量能"],["turnover_rate_f","实换手%"],["market_cap_yi","市值亿"],
+      ["rps5","RPS5"],["rps10","RPS10"],["rps20","RPS20"],["rps60","RPS60"],["rps20_delta5","RPS20变化"],
+      ["ret5","5日%"],["ret10","10日%"],["distance_ma20","距MA20%"],["breakout20","20日突破"],["risk_flags","风险"],["reason","理由"]
+    ];
+    const industryCols = [
+      ["rank","排名"],["industry","二级行业"],["sw_l1","一级行业"],["state","状态"],["score","分数"],
+      ["industry_rps5","RPS5"],["industry_rps10","RPS10"],["industry_rps20","RPS20"],["industry_rps60","RPS60"],["rps_gap","5-20差"],
+      ["industry_amount_ratio","量能"],["industry_up_ratio","上涨%"],["strong_stock_count","强股数"],["above_ma20_ratio","站上MA20%"],["reason","理由"]
+    ];
+    renderAll();
+
+    function goStrategy(select) {
+      const target = select.value;
+      const current = window.location.pathname === "/index.html" ? "/" : window.location.pathname;
+      if (target && target !== current) window.location.href = target;
+    }
+    async function runStrategy() {
+      const dataSource = getGlobalDataSourcePayload();
+      if (!dataSource) return;
+      setStatus("正在扫描短线主线：先算二级行业，再从入围行业里选股...");
+      const payload = {
+        ...dataSource,
+        review_mode: document.getElementById("reviewMode").value,
+        end_date: document.getElementById("endDate").value.trim(),
+        lookback_days: 90,
+        short_mainline_top_industry_count: num("topIndustryCount"),
+        short_mainline_stocks_per_industry: num("stocksPerIndustry"),
+        short_mainline_top_count: num("topCount"),
+        short_mainline_min_industry_members: num("minIndustryMembers"),
+        short_mainline_min_industry_rps5: num("minIndustryRps5"),
+        short_mainline_min_industry_rps10: num("minIndustryRps10"),
+        short_mainline_min_industry_rps20: num("minIndustryRps20"),
+        short_mainline_max_industry_rps60: num("maxIndustryRps60"),
+        short_mainline_min_industry_rps_gap: num("minIndustryRpsGap"),
+        short_mainline_min_industry_amount_ratio: num("minIndustryAmountRatio"),
+        short_mainline_min_industry_up_ratio: num("minIndustryUpRatio"),
+        short_mainline_min_strong_stocks: num("minStrongStocks"),
+        short_mainline_min_stock_rps5: num("minStockRps5"),
+        short_mainline_min_stock_rps10: num("minStockRps10"),
+        short_mainline_min_stock_rps20: num("minStockRps20"),
+        short_mainline_min_stock_rps60: num("minStockRps60"),
+        short_mainline_min_stock_amount_yi: num("minStockAmount"),
+        short_mainline_min_stock_amount_ratio: num("minStockAmountRatio"),
+        short_mainline_max_stock_distance_ma20: num("maxStockDistanceMa20"),
+        short_mainline_max_stock_ret10: num("maxStockRet10"),
+        short_mainline_concept_enabled: document.getElementById("conceptEnabled").checked,
+        short_mainline_min_concept_stocks: num("minConceptStocks"),
+        short_mainline_exclude_st: document.getElementById("excludeSt").checked,
+        short_mainline_exclude_star: document.getElementById("excludeStar").checked,
+        short_mainline_exclude_chinext: document.getElementById("excludeChinext").checked
+      };
+      try {
+        const res = await fetch("/api/short_mainline", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload)});
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error || "扫描失败");
+        rows = data.rows || [];
+        industries = data.industries || [];
+        latestMarket = data.market || {};
+        sortState = {key:"score", dir:"desc"};
+        renderAll();
+        document.getElementById("logBox").textContent = (data.logs || []).join("\n");
+        setStatus(`扫描完成，交易日 ${data.trade_date}，主线 ${industries.length} 条，个股 ${rows.length} 只。`);
+      } catch (err) {
+        setStatus(`扫描失败：${err.message}`, true);
+      }
+    }
+    function renderAll() {
+      renderSummary();
+      renderIndustryTable();
+      renderStockTable();
+    }
+    function renderSummary() {
+      const items = [
+        ["主线数量", latestMarket.industry_count ?? industries.length],
+        ["个股数量", latestMarket.stock_count ?? rows.length],
+        ["市场上涨%", latestMarket.market_up_ratio ?? ""],
+        ["站上MA20%", latestMarket.market_above_ma20 ?? ""],
+        ["主线方向", latestMarket.top_industries || "", true],
+        ["说明", latestMarket.note || "", true]
+      ];
+      document.getElementById("summaryCards").innerHTML = items.map(([k,v,wide]) => `<div class="metric ${wide ? "wide" : ""}"><span>${escapeHtml(k)}</span><strong>${escapeHtml(v)}</strong></div>`).join("");
+    }
+    function renderIndustryTable() {
+      const head = `<thead><tr>${industryCols.map(c=>`<th onclick="sortIndustry('${c[0]}')">${escapeHtml(c[1])}</th>`).join("")}<th>操作</th></tr></thead>`;
+      const body = industries.length
+        ? `<tbody>${industries.map((r,i)=>`<tr>${industryCols.map(c=>`<td>${renderCell(r, c[0])}</td>`).join("")}<td><button class="mini-btn" onclick="copyRow(industries[${i}], industryCols)">复制</button></td></tr>`).join("")}</tbody>`
+        : `<tbody><tr><td colspan="${industryCols.length + 1}">暂无主线行业</td></tr></tbody>`;
+      document.getElementById("industryTable").innerHTML = head + body;
+    }
+    function renderStockTable() {
+      const head = `<thead><tr>${stockCols.map(c=>`<th onclick="sortStocks('${c[0]}')">${escapeHtml(c[1])} ${sortMark(c[0])}</th>`).join("")}<th>操作</th></tr></thead>`;
+      const body = rows.length
+        ? `<tbody>${rows.map((r,i)=>`<tr>${stockCols.map(c=>`<td>${renderCell(r, c[0])}</td>`).join("")}<td><button class="mini-btn" onclick="copyRow(rows[${i}], stockCols)">复制</button></td></tr>`).join("")}</tbody>`
+        : `<tbody><tr><td colspan="${stockCols.length + 1}">暂无个股候选</td></tr></tbody>`;
+      document.getElementById("resultTable").innerHTML = head + body;
+    }
+    function renderCell(row, key) {
+      const value = row[key] ?? "";
+      if (key === "code") return `<span class="code-cell" onclick="copyText('${escapeJs(value)}')">${escapeHtml(value)}</span>`;
+      if (["state","industry_state"].includes(key)) {
+        const hot = String(value).includes("爆发") || String(value).includes("确认");
+        return `<span class="${hot ? "state-hot" : "state-watch"}">${escapeHtml(value)}</span>`;
+      }
+      if (["score","industry_score","rps5","rps10","rps20","industry_rps5","industry_rps10","industry_rps20"].includes(key)) return `<span class="cell-good">${escapeHtml(value)}</span>`;
+      if (["risk_flags"].includes(key) && value !== "正常") return `<span class="cell-warn">${escapeHtml(value)}</span>`;
+      if (["pct_chg","ret5","ret10","distance_ma20"].includes(key)) {
+        const cls = Number(value) < 0 ? "cell-bad" : (Math.abs(Number(value)) > 12 ? "cell-warn" : "cell-good");
+        return `<span class="${cls}">${escapeHtml(value)}</span>`;
+      }
+      return escapeHtml(value);
+    }
+    function sortStocks(key) {
+      const dir = sortState.key === key && sortState.dir === "desc" ? "asc" : "desc";
+      sortState = {key, dir};
+      rows.sort((a,b)=>compareCell(a[key], b[key], dir));
+      renderStockTable();
+    }
+    function sortIndustry(key) {
+      industries.sort((a,b)=>compareCell(a[key], b[key], "desc"));
+      renderIndustryTable();
+    }
+    function sortMark(key) {
+      if (sortState.key !== key) return "";
+      return sortState.dir === "asc" ? "▲" : "▼";
+    }
+    function compareCell(a, b, dir) {
+      const na = parseFloat(a), nb = parseFloat(b);
+      const result = (!Number.isNaN(na) && !Number.isNaN(nb)) ? na - nb : String(a ?? "").localeCompare(String(b ?? ""), "zh-Hans-CN");
+      return dir === "asc" ? result : -result;
+    }
+    async function copyAllCodes() {
+      const codes = [...new Set(rows.map(r => String(r.code || "").trim()).filter(Boolean))];
+      if (!codes.length) { alert("暂无代码可复制"); return; }
+      await copyText(codes.join("\n"));
+      setStatus(`已复制 ${codes.length} 个代码。`);
+    }
+    async function copyIndustries() {
+      const text = industries.map(item => `${item.rank}. ${item.industry} ${item.state} ${item.score}`).join("\n");
+      if (!text) { alert("暂无主线行业"); return; }
+      await copyText(text);
+      setStatus(`已复制 ${industries.length} 条主线行业。`);
+    }
+    async function copyRow(row, columns) {
+      const header = columns.map(c=>c[1]).join("\t");
+      const line = columns.map(c=>String(row[c[0]] ?? "").replace(/\s+/g, " ").trim()).join("\t");
+      await copyText(`${header}\n${line}`);
+      setStatus("已复制整行。");
+    }
+    async function copyText(text) {
+      if (navigator.clipboard && window.isSecureContext) {
+        try { await navigator.clipboard.writeText(text); return; } catch (_) {}
+      }
+      const textarea = document.createElement("textarea");
+      textarea.value = text;
+      textarea.setAttribute("readonly", "");
+      textarea.style.position = "fixed";
+      textarea.style.left = "-9999px";
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+      document.execCommand("copy");
+      textarea.remove();
+    }
+    function downloadCsv() {
+      if (!rows.length) { alert("暂无数据"); return; }
+      const csv = [stockCols.map(c=>`"${c[1]}"`).join(",")]
+        .concat(rows.map(r=>stockCols.map(c=>`"${String(r[c[0]] ?? "").replaceAll('"','""')}"`).join(",")))
+        .join("\n");
+      const blob = new Blob(["\ufeff" + csv], {type:"text/csv;charset=utf-8"});
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `short_mainline_${new Date().toISOString().slice(0,10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+    function num(id) {
+      return Number(document.getElementById(id).value || 0);
+    }
+    function setStatus(text, bad=false) {
+      const el = document.getElementById("status");
+      el.textContent = text;
+      el.className = bad ? "status bad" : "status";
+    }
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch]));
+    }
+    function escapeJs(value) {
+      return String(value ?? "").replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>横截面动量策略</title>
+  <style>
+    :root{--bg:var(--app-bg,#0d1117);--panel:var(--app-panel,#161b22);--soft:var(--app-panel-soft,#111820);--text:var(--app-text,#e6edf3);--muted:var(--app-muted,#8b949e);--line:var(--app-border,#30363d);--accent:var(--app-accent,#58a6ff);--up:var(--app-bad,#f85149);--down:var(--app-good,#3fb950);--warn:var(--app-warn,#d29922);--shadow:0 8px 24px rgba(1,4,9,.24)}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:"Microsoft YaHei",Arial,sans-serif;font-size:14px}header{position:sticky;top:0;z-index:5;background:rgba(255,255,255,.97);border-bottom:1px solid var(--line);padding:14px 18px;backdrop-filter:blur(10px)}main{padding:14px 18px 48px;max-width:1800px;margin:0 auto}.topbar,.actions,.inline,.toolbar,.status-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.topbar{justify-content:space-between;gap:12px;margin-bottom:12px}h1{margin:0;font-size:20px}h2{margin:0;font-size:16px}.strategy-nav{width:220px}label{display:block;color:var(--muted);font-size:12px;margin-bottom:4px}input,select{width:100%;height:34px;border:1px solid var(--line);border-radius:6px;padding:0 8px;background:#fff;color:var(--text)}input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent)}button{height:34px;padding:0 13px;border:1px solid var(--accent);border-radius:6px;background:var(--accent);color:#fff;font-weight:700;cursor:pointer}button.secondary{background:#fff;color:var(--text);border-color:var(--line)}button.ghost{background:#fff;color:var(--accent)}button:disabled{opacity:.45;cursor:not-allowed}.status{color:var(--muted);line-height:1.5}.status.bad{color:#b42318;font-weight:700}.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);margin-bottom:12px}.panel-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line)}.panel-head h2{white-space:nowrap}.panel-body{padding:12px 14px}.controls-grid{display:grid;grid-template-columns:repeat(8,minmax(120px,1fr));gap:10px}.field-wide{grid-column:span 2}.check-row{display:flex;align-items:center;gap:8px;min-height:34px;padding:0 9px;border:1px solid var(--line);border-radius:6px;background:var(--soft);white-space:nowrap}.check-row label{margin:0;color:var(--text);font-size:13px}.group-title{grid-column:1/-1;margin:4px 0 -2px;color:var(--accent);font-weight:700;font-size:13px}.help{color:var(--muted);font-size:12px;line-height:1.6}.formula{padding:10px 12px;border-radius:7px;background:#eef5ff;color:#174ea6;line-height:1.7}.stats{display:grid;grid-template-columns:repeat(7,minmax(110px,1fr));gap:10px}.stat{padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--soft)}.stat span{display:block;color:var(--muted);font-size:12px;margin-bottom:5px}.stat strong{font-size:18px}.toolbar{justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--line)}.toolbar-left,.toolbar-right{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.count{color:var(--muted);font-size:13px}.table-wrap{overflow:auto;max-height:calc(100vh - 350px)}table{width:100%;min-width:1900px;border-collapse:separate;border-spacing:0}th,td{padding:8px 9px;border-bottom:1px solid var(--line);white-space:nowrap;text-align:center;font-size:13px;background:#fff}th{position:sticky;top:0;z-index:2;background:#eef2f7;color:#344054;cursor:pointer}th.select-col,td.select-col{position:sticky;left:0;z-index:3;width:42px}th.code-col,td.code-col{position:sticky;left:42px;z-index:3}th.select-col,th.code-col{background:#eef2f7}td.select-col,td.code-col{background:#fff}td.reason{max-width:420px;white-space:normal;text-align:left;line-height:1.45}.code-link{color:var(--accent);font-weight:700;text-decoration:none}.code-link:hover{text-decoration:underline}.recommended-row td{background:#fffaf0}.recommend-badge{display:inline-block;padding:2px 6px;border-radius:10px;background:#fff0c2;color:#8a4b00;font-weight:700}.up{color:var(--up);font-weight:700}.down{color:var(--down);font-weight:700}.flat,.muted{color:var(--muted)}.risk{color:#b42318;font-weight:700}.modal{position:fixed;inset:0;z-index:20;display:none;align-items:center;justify-content:center;padding:16px;background:rgba(16,24,40,.45)}.modal.open{display:flex}.modal-card{width:min(820px,100%);max-height:90vh;overflow:auto;border-radius:10px;background:#fff;border:1px solid var(--line);box-shadow:0 18px 60px rgba(16,24,40,.2)}.modal-head{display:flex;align-items:center;justify-content:space-between;padding:13px 15px;border-bottom:1px solid var(--line)}.modal-body{padding:14px 15px}.columns{display:grid;grid-template-columns:repeat(3,minmax(150px,1fr));gap:8px}.columns label{display:flex;align-items:center;gap:7px;padding:8px;border:1px solid var(--line);border-radius:6px;background:var(--soft);color:var(--text)}.columns label input{width:16px}.recommend-box{display:none}.recommend-box.show{display:block}.recommend-grid{display:grid;grid-template-columns:repeat(3,minmax(200px,1fr));gap:9px}.recommend-item{padding:10px;border:1px solid #f0d28b;border-radius:8px;background:#fffaf0}.recommend-item a{color:var(--accent);font-weight:700}.recommend-item p{margin:6px 0 0;color:#5d4b27;line-height:1.5;font-size:12px;white-space:normal}.logs{display:none;white-space:pre-wrap;max-height:230px;overflow:auto;background:#101828;color:#d0d5dd;padding:12px;border-radius:7px;line-height:1.5}.logs.show{display:block}
+    .condition-tip{margin-bottom:10px;padding:9px 11px;border:1px dashed var(--line);border-radius:7px;background:var(--soft);color:var(--muted);line-height:1.6}.condition-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}.condition-table{min-width:1120px;width:100%;border-collapse:separate;border-spacing:0}.condition-table th,.condition-table td{padding:7px 8px;background:var(--soft);border-bottom:1px solid var(--line);white-space:nowrap;text-align:center}.condition-table th{position:static;color:var(--text);font-weight:700}.condition-table td input,.condition-table td select{min-width:100px;height:32px}.condition-table td:first-child input{min-width:16px;width:16px}.condition-table .condition-object{min-width:86px}.condition-table .condition-time{min-width:130px}.condition-table .condition-indicator{min-width:130px}.condition-table .condition-rank-scope{min-width:140px}.condition-table .condition-rank-mode{min-width:100px}.condition-table .condition-value{min-width:90px}.condition-table .condition-actions{display:flex;align-items:center;justify-content:center;gap:5px}.condition-table .condition-actions button{height:30px;padding:0 8px}.condition-disabled{opacity:.45}.condition-preview{margin-top:10px;padding:10px 12px;border-radius:7px;background:rgba(88,166,255,.10);color:var(--muted);line-height:1.7}.condition-preview strong{color:var(--text);font-weight:600}.compact-grid{grid-template-columns:repeat(8,minmax(120px,1fr))}
+    .recommend-table{min-width:920px}.recommend-table td.reason{min-width:420px}
+    @media(max-width:1100px){.controls-grid{grid-template-columns:repeat(4,minmax(120px,1fr))}.stats{grid-template-columns:repeat(4,minmax(120px,1fr))}.recommend-grid{grid-template-columns:repeat(2,minmax(180px,1fr))}}
+    @media(max-width:650px){header,main{padding:10px}.topbar{align-items:flex-start;flex-direction:column}h1{font-size:18px}.strategy-nav{width:100%}.controls-grid,.compact-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.field-wide{grid-column:span 2}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.panel-head{align-items:flex-start;flex-direction:column}.panel-body{padding:10px}.toolbar{align-items:flex-start;flex-direction:column}.toolbar-left,.toolbar-right{width:100%}.toolbar button{flex:1}.table-wrap{max-height:none;overflow-x:auto;-webkit-overflow-scrolling:touch}table{min-width:1700px}th,td{padding:8px 8px;font-size:12px}.condition-table{min-width:1120px}.condition-table th,.condition-table td{padding:6px}.columns{grid-template-columns:repeat(2,minmax(130px,1fr))}.recommend-grid{grid-template-columns:1fr}.recommend-box .panel-head{flex-direction:row;align-items:center}.formula{font-size:12px}}
+  </style>
+  <link rel="stylesheet" href="/app-layout.css" />
+  <style>
+    body{background:var(--app-bg,#0d1117);color:var(--app-text,#e6edf3)}
+    header{background:var(--app-panel,#161b22)!important;color:var(--app-text,#e6edf3)}
+    input,select{background:var(--app-panel-soft,#111820)!important;color:var(--app-text,#e6edf3)!important;border-color:var(--app-border,#30363d)!important}
+    button.secondary,button.ghost{background:var(--app-panel-soft,#111820)!important;color:var(--app-text,#e6edf3)!important;border-color:var(--app-border,#30363d)!important}
+    .panel,.modal-card{background:var(--app-panel,#161b22)!important;color:var(--app-text,#e6edf3)}
+    .table-wrap{background:var(--app-bg,#0d1117)}
+    #resultTable,#recommendTable,#backtestTable{background:var(--app-panel-soft,#111820)!important}
+    #resultTable th,#resultTable td,#recommendTable th,#recommendTable td,#backtestTable th,#backtestTable td{background:var(--app-panel-soft,#111820)!important;color:var(--app-text,#e6edf3)!important;border-color:var(--app-border,#30363d)!important}
+    #resultTable thead th,#recommendTable thead th,#backtestTable thead th{background:var(--app-panel,#161b22)!important;color:var(--app-text,#e6edf3)!important}
+    #resultTable tbody tr:nth-child(even) td,#recommendTable tbody tr:nth-child(even) td,#backtestTable tbody tr:nth-child(even) td{background:var(--app-panel,#161b22)!important}
+    #resultTable tbody tr:hover td,#recommendTable tbody tr:hover td,#backtestTable tbody tr:hover td{background:var(--app-panel-hover,#1f2630)!important}
+    #resultTable th.select-col,#resultTable td.select-col,#resultTable th.code-col,#resultTable td.code-col{background:var(--app-panel-soft,#111820)!important;color:var(--app-text,#e6edf3)!important}
+    #resultTable thead th.select-col,#resultTable thead th.code-col{background:var(--app-panel,#161b22)!important}
+    #resultTable tbody tr:nth-child(even) td.select-col,#resultTable tbody tr:nth-child(even) td.code-col{background:var(--app-panel,#161b22)!important}
+    #resultTable tbody tr:hover td.select-col,#resultTable tbody tr:hover td.code-col{background:var(--app-panel-hover,#1f2630)!important}
+    #recommendTable th.code-col,#recommendTable td.code-col{position:static;left:auto;z-index:auto}
+    .sort-button{display:inline-flex;align-items:center;gap:4px;width:100%;justify-content:center;padding:0;border:0;background:transparent;color:inherit;font:inherit;cursor:pointer}
+    .sort-button:hover{color:var(--app-accent,#58a6ff)}
+    .sort-indicator{color:var(--app-accent,#58a6ff);font-size:11px;min-width:10px}
+    .section-head{cursor:pointer}
+    .section-head .section-title{display:flex;align-items:center;gap:8px;min-width:0}
+    .section-head .section-title h2{margin:0}
+    .collapse-toggle{width:74px;height:30px;padding:0 8px;font-size:12px;flex:0 0 auto}
+    .collapsible-section.collapsed .panel-head{border-bottom:0}
+    .collapsible-section.collapsed .panel-body{display:none}
+    .collapsible-section.collapsed .collapse-toggle::before{content:"展开"}
+    .collapsible-section:not(.collapsed) .collapse-toggle::before{content:"收起"}
+    .collapsible-section .collapse-toggle{font-size:0}
+    .collapsible-section .collapse-toggle::before{font-size:12px}
+    .section-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+    .section-actions .help{flex:1 1 260px}
+    #resultTable th,#resultTable td,#recommendTable th,#recommendTable td{padding:7px 8px;line-height:1.25}
+    #resultTable td.reason,#recommendTable td.reason{max-width:360px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left}
+    #resultTable td.up,#recommendTable td.up{color:var(--app-bad,#f85149)!important}
+    #resultTable td.down,#recommendTable td.down{color:var(--app-good,#3fb950)!important}
+    #resultTable td.flat,#recommendTable td.flat{color:var(--app-muted,#8b949e)!important}
+    .column-group-title{margin:14px 0 8px;color:var(--app-text,#e6edf3);font-size:14px}
+    .column-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+    .date-control{display:flex;align-items:center;gap:8px}.date-control input{flex:1;min-width:128px}.date-control button{white-space:nowrap}
+    .result-date-controls{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.result-date-label{color:var(--app-muted,#8b949e);font-size:13px;white-space:nowrap}.result-date-status.bad{color:var(--app-bad,#f85149);font-weight:700}
+    .formula{background:rgba(88,166,255,.10);color:var(--app-text,#e6edf3)}
+    .recommend-table{min-width:920px}
+    .condition-table .condition-time-cell{min-width:190px;padding:6px}
+    .condition-table .condition-time-cell select{width:84px;min-width:84px;margin-right:4px}
+    .condition-table .condition-time-cell input{width:70px;min-width:70px;text-align:center}
+    .condition-table th:first-child,.condition-table td:first-child{position:sticky;left:0;z-index:5;background:var(--app-panel,#161b22)}
+    .condition-table th:nth-child(2),.condition-table td:nth-child(2){position:sticky;left:42px;z-index:5;background:var(--app-panel,#161b22)}
+    .condition-table td:first-child,.condition-table td:nth-child(2){background:var(--app-panel-soft,#111820)}
+    .condition-diagnostic-table{min-width:760px;width:100%;border-collapse:separate;border-spacing:0}.condition-diagnostic-table th,.condition-diagnostic-table td{padding:7px 8px;border-bottom:1px solid var(--app-border,#30363d);background:var(--app-panel-soft,#111820);color:var(--app-text,#e6edf3);white-space:nowrap}.condition-diagnostic-table th{background:var(--app-panel,#161b22)}
+    #resultTable tr.recommended-row td{background:var(--app-panel-hover,#1f2630)!important}
+    .backtest-box{display:none}.backtest-box.show{display:block}.backtest-summary{padding:10px 14px;color:var(--app-muted,#8b949e);line-height:1.6;border-bottom:1px solid var(--app-border,#30363d)}
+    #backtestTable{min-width:2460px}.backtest-modal-grid{display:grid;grid-template-columns:minmax(180px,280px);gap:12px}.backtest-modal-grid .help{margin:0}
+    @media(max-width:650px){.section-head{align-items:center!important;flex-direction:row!important}.collapse-toggle{margin-left:auto}.section-actions{align-items:stretch}.section-actions .help{flex-basis:100%}.section-actions button{flex:1}.date-control{flex-wrap:wrap}.date-control input{flex:1 0 100%}.date-control button{flex:1}#section1Body .controls-grid{grid-template-columns:1fr}#section1Body .field-wide{grid-column:span 1}#section1Body .check-row{white-space:normal;min-height:48px}#section1Body .check-row label{white-space:normal;line-height:1.35}.toolbar-left,.toolbar-right{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.toolbar-left>strong,.toolbar-left>.count,.toolbar-left>.result-date-controls{grid-column:1/-1}.toolbar button{width:100%;min-height:40px;height:auto;white-space:normal;padding:6px 5px}.result-date-controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}.result-date-label{grid-column:1/-1}.result-date-controls button{min-height:34px}.sort-button{min-height:26px}#resultTable th,#resultTable td,#recommendTable th,#recommendTable td{padding:6px 7px;line-height:1.2}}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="topbar">
+      <div>
+        <h1>横截面动量策略</h1>
+        <div id="status" class="status">请先设置 T 基准交易日，然后运行筛选。</div>
+      </div>
+      <div class="actions">
+        <select id="strategyNav" class="strategy-nav" onchange="goStrategy(this)" aria-label="策略切换">
+          <option value="/cross-sectional-momentum" selected>横截面动量策略</option>
+          <option value="/strong-concept-momentum">强势股票×强势概念</option>
+          <option value="/concept-radar">同花顺概念雷达</option>
+          <option value="/first-limit">涨停板策略</option>
+          <option value="/">大盘总览</option>
+        </select>
+        <button class="ghost" type="button" onclick="openColumns()">可见列</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="panel collapsible-section collapsed" id="section1">
+      <div class="panel-head section-head"><div class="section-title"><button class="secondary collapse-toggle" type="button" onclick="toggleSection('section1',event)" aria-expanded="false" aria-controls="section1Body"></button><h2>1. T 基准日和数据模式</h2></div></div>
+      <div class="panel-body" id="section1Body">
+        <div class="help" style="margin-bottom:10px">T 必须先确定；T-1、T-2、T-3 均按交易日计算。</div>
+        <div class="controls-grid">
+          <div class="field-wide"><label for="endDate">基准交易日 T（默认今天，非交易日自动回退）</label><div class="date-control"><input id="endDate" type="text" inputmode="numeric" /><button id="previousTradeDate" data-date-shift class="secondary" type="button" onclick="shiftTradeDate(-1)">上一交易日</button><button id="nextTradeDate" data-date-shift class="secondary" type="button" onclick="shiftTradeDate(1)">下一交易日</button></div></div>
+          <div class="check-row"><input id="autoRunOnDateShift" type="checkbox" checked /><label for="autoRunOnDateShift">切换交易日后自动运行筛选</label></div>
+          <div><label for="dataMode">数据模式</label><select id="dataMode"><option value="close">收盘复盘</option><option value="history">历史复盘</option></select></div>
+          <div class="check-row"><input id="realtimeEnabled" type="checkbox" /><label for="realtimeEnabled">启用实时数据</label></div>
+          <div><label for="realtimeInterval">自动刷新间隔</label><select id="realtimeInterval"><option value="30">30秒</option><option value="60" selected>1分钟</option><option value="300">5分钟</option></select></div>
+          <div class="check-row"><input id="autoRefresh" type="checkbox" /><label for="autoRefresh">开启自动刷新</label></div>
+          <div class="field-wide"><label>实时操作</label><div class="inline"><button id="fetchRealtime" type="button" disabled onclick="fetchRealtime()">获取当时实时数据</button><button type="button" class="secondary" onclick="runCurrentScreen()">运行当前筛选</button></div></div>
+        </div>
+        <div id="snapshotNote" class="help" style="margin-top:9px">实时数据默认关闭；勾选后，“运行当前筛选”和交易日切换后的自动筛选都会读取实时快照。</div>
+        <div style="margin-top:9px"><label for="thsAppTemplate">手机同花顺 App 跳转模板（可选，使用 {code} 代表股票代码）</label><input id="thsAppTemplate" type="text" placeholder="留空使用同花顺网页；有可用 App 深链时再填写" /></div>
+      </div>
+    </section>
+
+    <section class="panel collapsible-section collapsed" id="section2">
+      <div class="panel-head section-head"><div class="section-title"><button class="secondary collapse-toggle" type="button" onclick="toggleSection('section2',event)" aria-expanded="false" aria-controls="section2Body"></button><h2>2. 股票范围</h2></div></div>
+      <div class="panel-body" id="section2Body">
+        <div class="help" style="margin-bottom:10px">勾选才纳入，未勾选就是排除。</div>
+        <div class="inline" id="scopeBox">
+          <div class="check-row"><input id="scopeMain" type="checkbox" checked /><label for="scopeMain">沪深主板</label></div>
+          <div class="check-row"><input id="scopeChinext" type="checkbox" /><label for="scopeChinext">创业板</label></div>
+          <div class="check-row"><input id="scopeStar" type="checkbox" /><label for="scopeStar">科创板</label></div>
+          <div class="check-row"><input id="scopeBj" type="checkbox" /><label for="scopeBj">北交所</label></div>
+          <div class="check-row"><input id="includeSt" type="checkbox" /><label for="includeSt">纳入 ST/*ST</label></div>
+        </div>
+        <div id="scopeSummary" class="help" style="margin-top:9px">当前纳入：沪深主板；当前排除：创业板、科创板、北交所、ST/*ST。</div>
+      </div>
+    </section>
+
+    <section class="panel collapsible-section collapsed" id="section3">
+      <div class="panel-head section-head"><div class="section-title"><button class="secondary collapse-toggle" type="button" onclick="toggleSection('section3',event)" aria-expanded="false" aria-controls="section3Body"></button><h2>3. 动态条件构建器</h2></div></div>
+      <div class="panel-body" id="section3Body">
+        <div class="section-actions"><span class="help">默认所有启用条件使用“且”。</span><button class="secondary" type="button" onclick="addCondition()">＋添加条件</button><button class="secondary" type="button" onclick="resetConditions()">恢复原始条件</button></div>
+        <div class="condition-tip">每一行都是独立条件：对象 → 计算方式 → 时间范围 → 指标 → 排名范围/阈值。原值、累计、两日比值均可配置；实换手率缺失时严格按不通过处理。</div>
+        <div class="condition-table-wrap keep-mobile-table">
+          <table class="condition-table"><thead><tr><th>启用</th><th>对象</th><th>计算</th><th>时间范围</th><th>指标</th><th>排名范围</th><th>排名方式</th><th>N / 阈值</th><th>关系/取值</th><th>操作</th></tr></thead><tbody id="conditionRows"></tbody></table>
+        </div>
+        <div class="condition-preview"><span>当前条件公式：</span><strong id="conditionPreview">--</strong></div>
+      </div>
+    </section>
+
+    <section class="panel collapsible-section collapsed" id="section4">
+      <div class="panel-head section-head"><div class="section-title"><button class="secondary collapse-toggle" type="button" onclick="toggleSection('section4',event)" aria-expanded="false" aria-controls="section4Body"></button><h2>4. 推荐设置</h2></div></div>
+      <div class="panel-body controls-grid compact-grid" id="section4Body"><div class="help field-wide">推荐只在通过硬条件的股票中排序。</div><div><label for="recommendCount">推荐股票数量</label><input id="recommendCount" type="number" min="1" value="10" /></div></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><h2>策略摘要</h2><button class="secondary" type="button" onclick="toggleLogs()">查看日志</button></div>
+      <div class="panel-body">
+        <div id="formula" class="formula">设置参数后运行，系统会显示实际筛选公式。</div>
+        <div class="stats" id="stats" style="margin-top:10px"></div>
+        <div class="condition-diagnostic-wrap" style="margin-top:10px;overflow:auto"><table class="condition-diagnostic-table keep-mobile-table"><thead><tr><th>条件</th><th>通过数量</th><th>股票池数量</th><th>缺失数量</th><th>实际数据范围</th></tr></thead><tbody id="conditionDiagnostics"></tbody></table></div>
+        <pre id="logs" class="logs" style="margin-top:10px"></pre>
+      </div>
+    </section>
+
+    <section class="panel" id="resultPanel">
+      <div class="toolbar">
+        <div class="toolbar-left">
+          <strong>筛选结果</strong><span id="resultCount" class="count">尚未运行</span>
+          <div class="result-date-controls"><span id="resultDateStatus" class="result-date-label">实际 T：--</span><button data-date-shift class="secondary" type="button" onclick="shiftTradeDate(-1,'results')">上一交易日</button><button data-date-shift class="secondary" type="button" onclick="shiftTradeDate(1,'results')">下一交易日</button></div>
+          <button class="secondary" type="button" onclick="selectAllRows(true)">全选全部结果</button>
+          <button class="secondary" type="button" onclick="selectAllRows(false)">清空</button>
+          <button class="secondary" type="button" onclick="invertSelection()">反选</button>
+        </div>
+        <div class="toolbar-right">
+          <button class="secondary" type="button" onclick="copySelected('code')">复制选中代码</button>
+          <button class="secondary" type="button" onclick="copySelected('name')">复制选中名称</button>
+          <button class="secondary" type="button" onclick="copyAll('name')">复制全部名称</button>
+          <button class="secondary" type="button" onclick="copyAll('code')">复制全部代码</button>
+          <button class="secondary" type="button" onclick="openColumns()">可见列</button>
+          <button class="secondary" type="button" onclick="exportCsv()">导出 CSV</button>
+          <button class="secondary" type="button" onclick="exportImage()">导出图片</button>
+          <button type="button" onclick="openBacktestModal()">回测</button>
+        </div>
+      </div>
+      <div class="table-wrap keep-mobile-table" data-mobile-cards="off">
+        <table id="resultTable"><thead></thead><tbody></tbody></table>
+      </div>
+    </section>
+
+    <section class="panel recommend-box" id="recommendBox">
+      <div class="panel-head"><h2>推荐股票</h2><div class="toolbar-right"><button class="secondary" type="button" onclick="selectRecommended()">勾选推荐股</button><button class="secondary" type="button" onclick="copyRecommendedNames()">复制推荐名称</button></div></div>
+      <div class="panel-body"><div class="table-wrap keep-mobile-table"><table id="recommendTable" class="recommend-table"><thead></thead><tbody></tbody></table></div></div>
+    </section>
+
+    <section class="panel backtest-box" id="backtestBox">
+      <div class="panel-head"><h2>历史回测明细</h2><div class="toolbar-right"><button class="secondary" type="button" onclick="exportBacktestCsv()">导出回测 CSV</button><button class="secondary" type="button" onclick="closeBacktestResults()">收起</button></div></div>
+      <div id="backtestSummary" class="backtest-summary"></div>
+      <div class="table-wrap keep-mobile-table" data-mobile-cards="off"><table id="backtestTable"><thead></thead><tbody></tbody></table></div>
+    </section>
+  </main>
+
+  <div class="modal" id="columnsModal" onclick="closeColumnsOnBackdrop(event)">
+    <div class="modal-card">
+      <div class="modal-head"><h2>选择显示列</h2><button class="secondary" type="button" onclick="closeColumns()">关闭</button></div>
+      <div class="modal-body">
+        <h3 class="column-group-title">筛选结果列</h3><div id="columnChoices" class="columns"></div>
+        <div class="column-actions"><button type="button" onclick="setCoreColumns()">恢复结果核心列</button><button class="secondary" type="button" onclick="setAllColumns()">结果显示全部列</button></div>
+        <h3 class="column-group-title">推荐股票列</h3><div id="recommendColumnChoices" class="columns"></div>
+        <div class="column-actions"><button type="button" onclick="setRecommendCoreColumns()">恢复推荐核心列</button><button class="secondary" type="button" onclick="setAllRecommendColumns()">推荐显示全部列</button></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="backtestModal" onclick="closeBacktestOnBackdrop(event)">
+    <div class="modal-card">
+      <div class="modal-head"><h2>横截面动量策略回测</h2><button class="secondary" type="button" onclick="closeBacktestModal()">关闭</button></div>
+      <div class="modal-body">
+        <div class="backtest-modal-grid"><div><label for="backtestDays">回测已完成交易日数</label><input id="backtestDays" type="number" min="1" max="250" step="1" value="60" /></div><p class="help">截止于当前 T 基准日；若当天尚未收盘会自动排除。股票范围、排除项和全部动态条件均复用当前设置。回测固定使用历史日线，不使用实时快照。</p></div>
+        <div class="actions" style="margin-top:16px"><button id="runBacktestButton" type="button" onclick="runBacktest()">执行回测</button><button class="secondary" type="button" onclick="closeBacktestModal()">取消</button></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/global-settings.js"></script>
+  <script src="/app-layout.js"></script>
+  <script>
+    const today = new Date();
+    const todayText = `${today.getFullYear()}${String(today.getMonth()+1).padStart(2,"0")}${String(today.getDate()).padStart(2,"0")}`;
+    document.getElementById("endDate").value = todayText;
+    let rows = [];
+    let recommendedRows = [];
+    let backtestRows = [];
+    let selectedCodes = new Set();
+    let sortState = {key:"", direction:0};
+    let recommendSortState = {key:"", direction:0};
+    let refreshTimer = null;
+    const conditionKey = "crossMomentumConditionsV2";
+    const legacyConditionKey = "crossMomentumConditions";
+    const sectionStateKey = "crossMomentumSections";
+    const autoRunDateShiftKey = "crossMomentumAutoRunDateShift";
+    function mainStrategyConditions(){ return [
+      {enabled:true,object:"stock",time_type:"offset",offset:-3,indicator:"limit_up",calculation:"value",operator:"eq",value:"limit_up",threshold:""},
+      {enabled:true,object:"stock",time_type:"offset",offset:-2,indicator:"limit_up",calculation:"value",operator:"eq",value:"not_limit_up",threshold:""},
+      {enabled:true,object:"stock",time_type:"offset_range",range_start_offset:-5,range_end_offset:-4,indicator:"pct_chg",calculation:"sum",operator:"le",value:"",threshold:10},
+      {enabled:true,object:"stock",time_type:"offset",offset:-2,indicator:"pct_chg",calculation:"value",operator:"lt",value:"",threshold:0},
+      {enabled:true,object:"stock",time_type:"offset",offset:-2,compare_offset:-3,indicator:"turnover_rate_f",calculation:"ratio",operator:"ge",value:"",threshold:1.3},
+      {enabled:true,object:"stock",time_type:"offset",offset:-1,indicator:"low_pct",calculation:"value",operator:"le",value:"",threshold:-9.5},
+      {enabled:false,object:"stock",time_type:"window",offset:0,window_days:10,indicator:"stock_strength",calculation:"value",rank_scope:"current_pool",rank_scope_label:"当前有效股票池",rank_mode:"count",rank_value:20,operator:"top",value:"",threshold:""},
+      {enabled:false,object:"concept",time_type:"window",offset:0,window_days:8,indicator:"concept_strength",calculation:"value",rank_scope:"all_concepts",rank_scope_label:"全部有效概念",rank_mode:"count",rank_value:10,operator:"top",value:"",threshold:""}
+    ]; }
+    function readStoredConditions(key){ try{ const value=JSON.parse(localStorage.getItem(key)||"null"); return Array.isArray(value)?value:null; }catch(_){ return null; } }
+    function isLegacyDefault(items){ return Array.isArray(items)&&items.length===5&&items[0]?.indicator==="limit_up"&&items[0]?.offset===-3&&items[1]?.indicator==="limit_up"&&items[1]?.offset===-2&&items[2]?.indicator==="low_pct"&&Number(items[2]?.threshold)===-6; }
+    const savedConditions=readStoredConditions(conditionKey);
+    const legacyConditions=readStoredConditions(legacyConditionKey);
+    let conditions=savedConditions || (isLegacyDefault(legacyConditions)?mainStrategyConditions():(legacyConditions||mainStrategyConditions()));
+    const columnDefs = [
+      ["code","代码"],["name","名称"],["stock_type","类型"],["t_pct_chg","T日涨幅%"],["t_open_pct","T日开盘涨幅%"],["t_high_pct","T日最高涨幅%"],["t_low_pct","T日最低涨幅%"],["open_price","开盘价"],["high_price","最高价"],["low_price","最低价"],["close_price","收盘价"],["latest_price","最新价"],["stock_momentum","个股动量%"],["stock_rank","个股排名"],["stock_rank_pct","个股强度%"],["concept_name","强势概念"],["concept_rank","概念排名"],["concept_return","概念涨幅%"],["condition_low_date","条件最低日期"],["low_pct","条件最低涨幅%"],["condition_open_date","条件开盘日期"],["open_pct","条件开盘涨幅%"],["t1_trade_date","T-1日期"],["t1_low_pct","T-1最低跌幅%"],["t1_close_price","T-1收盘价"],["t1_amount_yi","T-1成交额亿"],["t1_turnover_rate","T-1换手率%"],["t1_turnover_rate_f","T-1自由换手%"],["t1_market_cap_yi","T-1总市值亿"],["t1_circ_mv_yi","T-1流通市值亿"],["amount_yi","成交额亿"],["amount_ratio","量能比"],["turnover_rate_f","实换手%"],["volume_ratio","量比"],["recommend_rank","推荐排名"],["recommend_score","推荐分"],["risk_flags","风险"],["reason","命中/推荐理由"],["data_state","数据状态"]
+    ];
+    const coreColumns = ["code","name","stock_type","t_pct_chg","t_open_pct","t_high_pct","t_low_pct","t1_low_pct","t1_close_price","t1_amount_yi","t1_turnover_rate","t1_market_cap_yi","t1_circ_mv_yi","stock_momentum","stock_rank","concept_name","concept_rank","recommend_rank","recommend_score"];
+    const columnsStorageKey = "crossMomentumColumnsV3";
+    let visibleColumns = JSON.parse(localStorage.getItem(columnsStorageKey) || "null") || coreColumns.slice();
+    const recommendColumnDefs = [
+      ["recommend_rank","推荐排名"],["code","代码"],["name","名称"],["recommend_score","推荐分"],["stock_rank","个股排名"],
+      ...columnDefs.filter(([key])=>!["recommend_rank","code","name","recommend_score","stock_rank"].includes(key))
+    ];
+    const recommendCoreColumns = ["recommend_rank","code","name","recommend_score","stock_rank","t_pct_chg","t_open_pct","t_high_pct","t_low_pct"];
+    const recommendColumnsStorageKey = "crossMomentumRecommendColumnsV1";
+    let visibleRecommendColumns = JSON.parse(localStorage.getItem(recommendColumnsStorageKey) || "null") || recommendCoreColumns.slice();
+    const backtestColumnDefs = [
+      ["t_date","T日期"],["code","代码"],["name","名称"],["t_open_pct","T日开盘涨幅%"],["t_high_pct","T日最高涨幅%"],["t_pct_chg","T日收盘涨幅%"],
+      ...[5,4,3,2,1].flatMap(offset=>[[`tminus${offset}_date`,`T-${offset}日期`],[`tminus${offset}_pct_chg`,`T-${offset}收盘涨跌%`],[`tminus${offset}_turnover_rate`,`T-${offset}换手率%`],[`tminus${offset}_turnover_rate_f`,`T-${offset}实换手率%`],[`tminus${offset}_market_cap_yi`,`T-${offset}总市值亿`],[`tminus${offset}_circ_mv_yi`,`T-${offset}流通市值亿`]]),
+      ["t1_low_pct","T-1最低跌幅%"],["t1_close_price","T-1收盘价"],["t1_amount_yi","T-1成交额亿"]
+    ];
+    $("thsAppTemplate").value=localStorage.getItem("thsAppUrlTemplate")||"";
+    $("autoRunOnDateShift").checked=localStorage.getItem(autoRunDateShiftKey)!=="false";
+
+    function goStrategy(select){ const target=select.value; if(target && target!==location.pathname){ location.href=target; } }
+    function $(id){ return document.getElementById(id); }
+    function num(id){ return Number($(id).value); }
+    function bool(id){ return $(id).checked; }
+    function setStatus(text,bad=false){ $("status").textContent=text; $("status").className=bad?"status bad":"status"; }
+    function setResultDateStatus(text,bad=false){ const target=$("resultDateStatus"); if(!target)return; target.textContent=text; target.className=bad?"result-date-label result-date-status bad":"result-date-label"; }
+    function esc(value){ return String(value ?? "").replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch])); }
+    function fmt(value){ if(value===null || value===undefined || value==="") return ""; const n=Number(value); return Number.isFinite(n)?(Math.abs(n)>=100?n.toFixed(0):n.toFixed(2).replace(/\.00$/,"")):String(value); }
+    function colorClass(value){ const n=Number(value); return Number.isFinite(n)?(n>0?"up":n<0?"down":"flat"):"muted"; }
+    function toggleSection(id,event){ if(event) event.stopPropagation(); const section=$(id); if(!section)return; const collapsed=!section.classList.contains("collapsed"); section.classList.toggle("collapsed",collapsed); const button=section.querySelector(".collapse-toggle"); if(button) button.setAttribute("aria-expanded",String(!collapsed)); const state=JSON.parse(localStorage.getItem(sectionStateKey)||"{}"); state[id]=!collapsed; localStorage.setItem(sectionStateKey,JSON.stringify(state)); }
+    function restoreSectionState(){ const state=JSON.parse(localStorage.getItem(sectionStateKey)||"{}"); ["section1","section2","section3","section4"].forEach(id=>{ const section=$(id); if(!section)return; const expanded=state[id]===true; section.classList.toggle("collapsed",!expanded); const button=section.querySelector(".collapse-toggle"); if(button)button.setAttribute("aria-expanded",String(expanded)); }); }
+    function updateScopeSummary(){ const names=[]; const excluded=[]; if(bool("scopeMain")) names.push("沪深主板"); else excluded.push("沪深主板"); if(bool("scopeChinext")) names.push("创业板"); else excluded.push("创业板"); if(bool("scopeStar")) names.push("科创板"); else excluded.push("科创板"); if(bool("scopeBj")) names.push("北交所"); else excluded.push("北交所"); if(bool("includeSt")) names.push("ST/*ST"); else excluded.push("ST/*ST"); $("scopeSummary").textContent=`当前纳入：${names.join("、")||"无"}；当前排除：${excluded.join("、")||"无"}。`; }
+    function buildScope(){ const scope=[]; if(bool("scopeMain")) scope.push("main_board"); if(bool("scopeChinext")) scope.push("chinext"); if(bool("scopeStar")) scope.push("star"); if(bool("scopeBj")) scope.push("bj"); return scope; }
+    const stockIndicators=[
+      ["limit_up","涨停状态"],["low_pct","盘中最低跌幅"],["open_pct","开盘涨幅"],["pct_chg","涨跌幅"],
+      ["turnover_rate","换手率"],["turnover_rate_f","实换手率"],["amount","成交额"],["total_mv","总市值"],["circ_mv","流通市值"],
+      ["momentum","累计涨幅"],["stock_strength","个股强度"]
+    ];
+    const conceptIndicators=[["concept_strength","概念强度"],["momentum","概念累计涨幅"],["pct_chg","概念涨幅"]];
+    const ratioIndicators=[["turnover_rate","换手率"],["turnover_rate_f","实换手率"],["amount","成交额"],["total_mv","总市值"],["circ_mv","流通市值"]];
+    const sumIndicators=[["pct_chg","涨跌幅"]];
+    function calcOf(c){ return ["value","sum","ratio"].includes(c.calculation)?c.calculation:"value"; }
+    function defaultCondition(){ return {enabled:true,object:"stock",time_type:"offset",offset:0,window_days:10,indicator:"pct_chg",calculation:"value",rank_scope:"current_pool",rank_scope_label:"当前有效股票池",rank_mode:"count",rank_value:20,operator:"gt",value:"",threshold:0}; }
+    function conditionOptions(items,value){ return items.map(x=>`<option value="${x[0]}" ${x[0]===value?"selected":""}>${x[1]}</option>`).join(""); }
+    function renderConditions(){
+      $("conditionRows").innerHTML=conditions.map((c,i)=>{
+        const calculation=calcOf(c);
+        const rankIndicator=calculation==="value"&&["momentum","stock_strength","concept_strength"].includes(c.indicator);
+        const limitIndicator=calculation==="value"&&c.indicator==="limit_up";
+        const advanced=calculation!=="value";
+        const objectOptions=`<option value="stock" ${c.object==="stock"?"selected":""}>个股</option><option value="concept" ${c.object==="concept"?"selected":""}>概念</option>`;
+        const scopeOptions=c.object==="concept"?`<option value="all_concepts" selected>全部有效概念</option>`:`<option value="current_pool" selected>当前有效股票池</option>`;
+        const rankMode=rankIndicator?`<select class="condition-rank-mode" onchange="updateCondition(${i},'rank_mode',this.value)"><option value="count" ${c.rank_mode==="count"?"selected":""}>前 N 名</option><option value="percentile" ${c.rank_mode!=="count"?"selected":""}>前 N%</option></select>`:`<span class="muted">—</span>`;
+        const rankScope=rankIndicator?`<select class="condition-rank-scope" onchange="updateCondition(${i},'rank_scope',this.value)">${scopeOptions}</select>`:`<span class="muted">—</span>`;
+        const valueCell=rankIndicator?`<input class="condition-value" type="number" min="0.1" step="${c.rank_mode==="count"?"1":"0.1"}" value="${esc(c.rank_value??20)}" onchange="updateCondition(${i},'rank_value',this.value)" />`:limitIndicator?`<select class="condition-value" onchange="updateCondition(${i},'value',this.value)"><option value="limit_up" ${c.value!=="not_limit_up"?"selected":""}>涨停</option><option value="not_limit_up" ${c.value==="not_limit_up"?"selected":""}>未涨停</option></select>`:`<input class="condition-value" type="number" step="0.1" value="${esc(c.threshold??0)}" onchange="updateCondition(${i},'threshold',this.value)" />`;
+        const relation=rankIndicator?`<span class="muted">排名</span>`:limitIndicator?`<span class="muted">等于</span>`:`<select class="condition-value" onchange="updateCondition(${i},'operator',this.value)"><option value="gt" ${c.operator==="gt"?"selected":""}>大于</option><option value="ge" ${c.operator==="ge"?"selected":""}>大于等于</option><option value="lt" ${c.operator!=="gt"&&c.operator!=="ge"?"selected":""}>小于</option><option value="le" ${c.operator==="le"?"selected":""}>小于等于</option></select>`;
+        const calculationCell=(c.object!=="stock"||rankIndicator||limitIndicator)?`<span class="muted">原值</span>`:`<select class="condition-value" onchange="updateCondition(${i},'calculation',this.value)"><option value="value" ${calculation==="value"?"selected":""}>原值</option><option value="sum" ${calculation==="sum"?"selected":""}>区间累计</option><option value="ratio" ${calculation==="ratio"?"selected":""}>两日比值</option></select>`;
+        const timeCell=calculation==="sum"?`<span>T</span><input class="condition-value" type="number" max="0" value="${esc(c.range_start_offset??-5)}" onchange="updateCondition(${i},'range_start_offset',this.value)" /><span>至 T</span><input class="condition-value" type="number" max="0" value="${esc(c.range_end_offset??-4)}" onchange="updateCondition(${i},'range_end_offset',this.value)" />`:calculation==="ratio"?`<span>T</span><input class="condition-value" type="number" max="0" value="${esc(c.offset??-2)}" onchange="updateCondition(${i},'offset',this.value)" /><span>÷ T</span><input class="condition-value" type="number" max="0" value="${esc(c.compare_offset??-3)}" onchange="updateCondition(${i},'compare_offset',this.value)" />`:`<select class="condition-time" onchange="updateCondition(${i},'time_type',this.value)"><option value="offset" ${c.time_type!=="window"?"selected":""}>T-k</option><option value="window" ${c.time_type==="window"?"selected":""}>近 N 日</option></select><input class="condition-value" type="number" ${c.time_type==="window"?"min=\"1\"":"max=\"0\""} value="${esc(c.time_type==="window"?c.window_days:c.offset)}" onchange="updateCondition(${i},'${c.time_type==="window"?"window_days":"offset"}',this.value)" />`;
+        const indicators=calculation==="sum"?sumIndicators:calculation==="ratio"?ratioIndicators:(c.object==="concept"?conceptIndicators:stockIndicators);
+        return `<tr class="${c.enabled?"":"condition-disabled"}"><td><input type="checkbox" ${c.enabled?"checked":""} onchange="updateCondition(${i},'enabled',this.checked)" aria-label="启用第${i+1}条条件" /></td><td><select class="condition-object" onchange="updateCondition(${i},'object',this.value)">${objectOptions}</select></td><td>${calculationCell}</td><td class="condition-time-cell">${timeCell}</td><td><select class="condition-indicator" onchange="updateCondition(${i},'indicator',this.value)">${conditionOptions(indicators,c.indicator)}</select></td><td>${rankScope}</td><td>${rankMode}</td><td>${valueCell}</td><td>${relation}</td><td class="condition-actions"><button class="secondary" type="button" onclick="moveCondition(${i},-1)" title="上移">↑</button><button class="secondary" type="button" onclick="moveCondition(${i},1)" title="下移">↓</button><button class="secondary" type="button" onclick="removeCondition(${i})" title="删除">删</button></td></tr>`;
+      }).join("");
+      localStorage.setItem(conditionKey,JSON.stringify(conditions));
+      renderConditionPreview();
+    }
+    function updateCondition(index,key,value){ const c=conditions[index]; if(!c)return; const numeric=["offset","compare_offset","range_start_offset","range_end_offset","window_days","rank_value","threshold"]; c[key]=key==="enabled"?Boolean(value):(numeric.includes(key)&&value!==""?Number(value):value); if(key==="object"){c.calculation="value";c.indicator=c.object==="concept"?"concept_strength":"pct_chg";c.rank_scope=c.object==="concept"?"all_concepts":"current_pool";c.rank_scope_label=c.object==="concept"?"全部有效概念":"当前有效股票池";} if(key==="calculation"){if(value==="sum"){c.time_type="offset_range";c.range_start_offset=c.range_start_offset??-5;c.range_end_offset=c.range_end_offset??-4;c.indicator="pct_chg";} if(value==="ratio"){c.time_type="offset";c.offset=c.offset??-2;c.compare_offset=c.compare_offset??-3;c.indicator="turnover_rate_f";} if(value==="value")c.time_type=c.time_type==="offset_range"?"offset":c.time_type||"offset";} if(key==="indicator"&&["limit_up","momentum","stock_strength","concept_strength"].includes(value))c.calculation="value"; if(key==="time_type"&&value==="window")c.window_days=c.window_days||10; renderConditions(); }
+    function addCondition(){ conditions.push(defaultCondition()); renderConditions(); }
+    function removeCondition(index){ if(conditions.length<=1){setStatus("至少保留一条条件。",true);return;} conditions.splice(index,1); renderConditions(); }
+    function moveCondition(index,direction){ const target=index+direction; if(target<0||target>=conditions.length)return; [conditions[index],conditions[target]]=[conditions[target],conditions[index]]; renderConditions(); }
+    function resetConditions(){ conditions=mainStrategyConditions(); renderConditions(); }
+    function renderConditionPreview(){ const text=conditions.filter(c=>c.enabled).map(c=>{const obj=c.object==="concept"?"概念":"个股";const calc=calcOf(c);const offset=Number(c.offset)||0;const t=calc==="sum"?`T${c.range_start_offset}至T${c.range_end_offset}`:calc==="ratio"?`T${offset}÷T${c.compare_offset}`:(c.time_type==="window"?`近${c.window_days}个交易日`:offset===0?"T":`T${offset>0?"+":""}${offset}`);const labels={limit_up:"涨停状态",low_pct:"盘中最低跌幅",open_pct:"开盘涨幅",pct_chg:"涨跌幅",turnover_rate:"换手率",turnover_rate_f:"实换手率",amount:"成交额",total_mv:"总市值",circ_mv:"流通市值",momentum:"累计涨幅",stock_strength:"个股强度",concept_strength:"概念强度"};if(c.indicator==="limit_up")return `${obj} ${t} ${labels[c.indicator]}=${c.value==="not_limit_up"?"未涨停":"涨停"}`;if(["momentum","stock_strength","concept_strength"].includes(c.indicator))return `${obj} ${t} ${labels[c.indicator]}（${c.rank_scope==="all_concepts"?"全部有效概念":"当前有效股票池"}，${c.rank_mode==="count"?`前${c.rank_value}名`:`前${c.rank_value}%`}）`;const op={gt:">",ge:">=",lt:"<",le:"<="}[c.operator]||c.operator;const unit=calc==="ratio"?"倍":["pct_chg","low_pct","open_pct","turnover_rate","turnover_rate_f"].includes(c.indicator)?"%":"";return `${obj} ${t}${labels[c.indicator]}${calc==="sum"?"累计":""}${calc==="ratio"?"比值":""}${op}${c.threshold}${unit}`;}).join(" 且 "); $("conditionPreview").textContent=text||"没有启用条件"; }
+    function getPayload(realtime){
+      const dataSource=getGlobalDataSourcePayload(); if(!dataSource) return null;
+      const scope=buildScope(); if(!scope.length){ setStatus("至少勾选一个股票市场。",true); return null; }
+      const offsets=conditions.filter(c=>c.enabled).flatMap(c=>{const calc=calcOf(c);if(calc==="sum")return [Math.abs(Number(c.range_start_offset)||0),Math.abs(Number(c.range_end_offset)||0)];if(calc==="ratio")return [Math.abs(Number(c.offset)||0),Math.abs(Number(c.compare_offset)||0)];return c.time_type!=="window"?[Math.abs(Number(c.offset)||0)]:[];}); const windows=conditions.filter(c=>c.enabled&&c.time_type==="window").map(c=>Number(c.window_days)||1); const lookback=Math.max(70,...offsets.map(x=>x+5),...windows.map(x=>x+5));
+      return {...dataSource,end_date:$("endDate").value.trim(),review_mode:realtime?"intraday":"after_close",cross_momentum_conditions:conditions,cross_momentum_market_scope:scope,cross_momentum_exclude_st:!bool("includeSt"),cross_momentum_exclude_star:!bool("scopeStar"),cross_momentum_exclude_chinext:!bool("scopeChinext"),cross_momentum_exclude_bj:!bool("scopeBj"),cross_momentum_realtime_enabled:realtime,cross_momentum_realtime_auto_refresh:bool("autoRefresh"),cross_momentum_realtime_interval:num("realtimeInterval"),cross_momentum_recommend_count:Math.max(1,num("recommendCount")),lookback_days:lookback};
+    }
+    async function shiftTradeDate(direction,source="settings"){
+      const endDate=$("endDate"); const base=endDate.value.trim();
+      if(!/^\d{8}$/.test(base)){ setStatus("请先填写 YYYYMMDD 格式的基准交易日。",true); return; }
+      const dataSource=getGlobalDataSourcePayload(); if(!dataSource)return;
+      const buttons=[...document.querySelectorAll("[data-date-shift]")]; buttons.forEach(button=>button.disabled=true);
+      setStatus(`正在查询${direction>0?"下一":"上一"}交易日...`);
+      if(source==="results")setResultDateStatus(`正在切换至${direction>0?"下一":"上一"}交易日...`);
+      try{
+        const res=await fetch("/api/trade_date_shift",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...dataSource,end_date:base,direction})});
+        const data=await res.json(); if(!data.ok)throw new Error(data.error||"交易日切换失败");
+        endDate.value=data.trade_date;
+        if(bool("autoRunOnDateShift")){
+          setStatus(`已切换至 ${data.trade_date}，正在自动运行筛选...`);
+          if(source==="results")setResultDateStatus(`T=${data.trade_date}，正在刷新结果...`);
+          await runScreen(bool("realtimeEnabled"));
+        }else{
+          setStatus(`已切换至 ${data.trade_date}。日期已更新，请点击筛选读取该交易日数据。`);
+          if(source==="results")setResultDateStatus(`基准 T：${data.trade_date}（待运行）`);
+        }
+      }catch(err){ setStatus(`交易日切换失败：${err.message}`,true); if(source==="results")setResultDateStatus(`交易日切换失败：${err.message}`,true); }
+      finally{ buttons.forEach(button=>button.disabled=false); }
+    }
+    async function runScreen(realtime){
+      if(realtime && !bool("realtimeEnabled")){ setStatus("请先勾选“启用实时数据”。",true); return; }
+      const payload=getPayload(realtime); if(!payload) return;
+      setStatus(realtime?"正在获取当前时刻实时数据并筛选...":"正在读取收盘/历史数据并筛选...");
+      try{ const res=await fetch("/api/cross_sectional_momentum",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)}); const data=await res.json(); if(!data.ok) throw new Error(data.error||"筛选失败"); rows=data.rows||[]; recommendedRows=data.recommended_rows||[]; selectedCodes=new Set(); renderData(data); const source=data.market?.realtime_source||"实时行情"; const realtimeNote=data.market?.realtime_applied?`，实时快照 ${data.market.snapshot_at}（${source}）`:(realtime?"，实时源未提供当前 T 日行情，已回退收盘数据。":""); setStatus(`完成：T=${data.trade_date}，结果 ${rows.length} 只，推荐 ${recommendedRows.length} 只${realtimeNote}`); if(bool("autoRefresh") && bool("realtimeEnabled")) scheduleRefresh(); }catch(err){ setStatus(`筛选失败：${err.message}`,true); }
+    }
+    function runCurrentScreen(){ runScreen(bool("realtimeEnabled")); }
+    function fetchRealtime(){ runScreen(true); }
+    function scheduleRefresh(){ if(refreshTimer) clearTimeout(refreshTimer); refreshTimer=setTimeout(()=>{ if(bool("autoRefresh")&&bool("realtimeEnabled")) runScreen(true); },Math.max(30,num("realtimeInterval"))*1000); }
+    function openBacktestModal(){ $("backtestModal").classList.add("open"); $("backtestDays").focus(); }
+    function closeBacktestModal(){ $("backtestModal").classList.remove("open"); }
+    function closeBacktestOnBackdrop(event){ if(event.target.id==="backtestModal") closeBacktestModal(); }
+    async function runBacktest(){
+      const days=Math.floor(num("backtestDays"));
+      if(!Number.isFinite(days)||days<1||days>250){ setStatus("回测天数请输入 1 到 250 之间的整数。",true); return; }
+      const payload=getPayload(false); if(!payload)return;
+      payload.cross_momentum_backtest_days=days;
+      const button=$("runBacktestButton"); button.disabled=true;
+      setStatus(`正在回测最近 ${days} 个已完成交易日，首次运行会读取并缓存历史数据...`);
+      try{
+        const res=await fetch("/api/cross_sectional_momentum_backtest",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+        const data=await res.json(); if(!data.ok)throw new Error(data.error||"回测失败");
+        backtestRows=data.rows||[]; renderBacktest(data); closeBacktestModal();
+        setStatus(`回测完成：${data.actual_days||0} 个交易日，${data.event_count||0} 个命中事件。`);
+        $("backtestBox").scrollIntoView({behavior:"smooth",block:"start"});
+      }catch(err){ setStatus(`回测失败：${err.message}`,true); }
+      finally{ button.disabled=false; }
+    }
+    function renderBacktest(data){
+      const box=$("backtestBox"); box.classList.add("show");
+      $("backtestSummary").innerHTML=`截止 T=${esc(data.end_date||"")}；回测 ${esc(data.actual_days||0)} 个已完成交易日（${esc(data.start_date||"")} 至 ${esc(data.end_date||"")}），命中 ${esc(data.event_count||0)} 次、涉及 ${esc(data.stock_count||0)} 只股票。<br>${esc(data.formula||"")}<br>${esc(data.note||"")}`;
+      const table=$("backtestTable"); table.querySelector("thead").innerHTML=`<tr>${backtestColumnDefs.map(([,label])=>`<th>${esc(label)}</th>`).join("")}</tr>`;
+      table.querySelector("tbody").innerHTML=backtestRows.map(row=>`<tr>${backtestColumnDefs.map(([key])=>backtestCell(row,key)).join("")}</tr>`).join("");
+    }
+    function backtestCell(row,key){
+      const raw=row[key]??"";
+      if(key==="code")return `<td class="code-col"><a class="code-link" href="${esc(row.ths_url||`https://stockpage.10jqka.com.cn/${row.code}/`)}" onclick="openThs(event,'${esc(row.code)}')" target="_blank" rel="noopener">${esc(row.code)} ↗</a></td>`;
+      if(key.endsWith("_pct_chg")||key.endsWith("_turnover_rate")||key.endsWith("_turnover_rate_f")||["t_open_pct","t_high_pct","t1_low_pct"].includes(key))return `<td class="${colorClass(raw)}">${esc(fmt(raw))}${raw!==""?"%":""}</td>`;
+      return `<td>${esc(fmt(raw))}</td>`;
+    }
+    function closeBacktestResults(){ $("backtestBox").classList.remove("show"); }
+    function exportBacktestCsv(){
+      if(!backtestRows.length){setStatus("当前没有回测明细，请先执行回测。",true);return;}
+      const lines=[backtestColumnDefs.map(x=>x[1]).join(","),...backtestRows.map(row=>backtestColumnDefs.map(([key])=>`"${String(row[key]??"").replaceAll('"','""')}"`).join(","))];
+      const blob=new Blob(["\ufeff"+lines.join("\n")],{type:"text/csv;charset=utf-8"}); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`cross_sectional_momentum_backtest_${$("endDate").value}_${backtestRows.length}events.csv`; a.click(); URL.revokeObjectURL(a.href); setStatus("回测完整明细 CSV 已导出。");
+    }
+    function renderData(data){
+      const m=data.market||{}; $("formula").textContent=m.selection_formula||"当前配置没有生成筛选公式。";
+      const stats=[["实际T",data.trade_date||""],["有效股票",m.stock_universe_count||""],["筛选结果",rows.length],["推荐数量",recommendedRows.length],["个股窗口",m.stock_days?`${m.stock_days}日`:"按条件"],["概念窗口",m.concept_enabled?`${m.concept_days}日`:"未启用"],["数据状态",m.realtime_applied?"实时快照":"收盘数据"]]; $("stats").innerHTML=stats.map(x=>`<div class="stat"><span>${esc(x[0])}</span><strong>${esc(x[1])}</strong></div>`).join(""); setResultDateStatus(`实际 T：${data.trade_date||"--"}${m.realtime_applied?"（实时）":""}`); $("resultCount").textContent=`共 ${rows.length} 只，已选 ${selectedCodes.size} 只`; $("logs").textContent=(data.logs||[]).join("\n"); renderConditionDiagnostics(data.condition_diagnostics||[]); renderRecommendations(); renderColumns(); renderTable(); }
+    function renderConditionDiagnostics(items){ $("conditionDiagnostics").innerHTML=items.length?items.map(x=>`<tr><td>${esc(x.condition||"")}</td><td>${esc(x.pass_count??"")}</td><td>${esc(x.total_count??"")}</td><td>${esc(x.missing_count??"")}</td><td>${esc(x.actual_summary||"")}</td></tr>`).join(""): `<tr><td colspan="5" class="muted">运行后显示每条条件的实际数据和通过数量。</td></tr>`; }
+    function renderRecommendations(){ const box=$("recommendBox"); const table=$("recommendTable"); if(!recommendedRows.length){ box.classList.remove("show"); table.querySelector("thead").innerHTML=""; table.querySelector("tbody").innerHTML=""; return; } box.classList.add("show"); const defs=recommendColumnDefs.filter(([key])=>visibleRecommendColumns.includes(key)); table.querySelector("thead").innerHTML=`<tr>${defs.map(([key,label])=>sortableHeader(key,label,recommendSortState,"sortRecommendations")).join("")}</tr>`; table.querySelector("tbody").innerHTML=sortedRecommendedRows().map(r=>`<tr>${defs.map(([key])=>cell(r,key)).join("")}</tr>`).join(""); }
+    function renderColumns(){ $("columnChoices").innerHTML=columnDefs.map(([key,label])=>`<label><input type="checkbox" data-col="${key}" ${visibleColumns.includes(key)?"checked":""} onchange="toggleColumn('${key}',this.checked)" />${label}</label>`).join(""); $("recommendColumnChoices").innerHTML=recommendColumnDefs.map(([key,label])=>`<label><input type="checkbox" data-recommend-col="${key}" ${visibleRecommendColumns.includes(key)?"checked":""} onchange="toggleRecommendColumn('${key}',this.checked)" />${label}</label>`).join(""); }
+    function toggleColumn(key,on){ visibleColumns=on?[...new Set([...visibleColumns,key])]:visibleColumns.filter(x=>x!==key); if(!visibleColumns.length) visibleColumns=coreColumns.slice(); localStorage.setItem(columnsStorageKey,JSON.stringify(visibleColumns)); renderTable(); }
+    function setCoreColumns(){ visibleColumns=coreColumns.slice(); localStorage.setItem(columnsStorageKey,JSON.stringify(visibleColumns)); renderColumns(); renderTable(); }
+    function setAllColumns(){ visibleColumns=columnDefs.map(x=>x[0]); localStorage.setItem(columnsStorageKey,JSON.stringify(visibleColumns)); renderColumns(); renderTable(); }
+    function toggleRecommendColumn(key,on){ visibleRecommendColumns=on?[...new Set([...visibleRecommendColumns,key])]:visibleRecommendColumns.filter(x=>x!==key); if(!visibleRecommendColumns.length) visibleRecommendColumns=recommendCoreColumns.slice(); localStorage.setItem(recommendColumnsStorageKey,JSON.stringify(visibleRecommendColumns)); renderRecommendations(); }
+    function setRecommendCoreColumns(){ visibleRecommendColumns=recommendCoreColumns.slice(); localStorage.setItem(recommendColumnsStorageKey,JSON.stringify(visibleRecommendColumns)); renderColumns(); renderRecommendations(); }
+    function setAllRecommendColumns(){ visibleRecommendColumns=recommendColumnDefs.map(x=>x[0]); localStorage.setItem(recommendColumnsStorageKey,JSON.stringify(visibleRecommendColumns)); renderColumns(); renderRecommendations(); }
+    const numericSortColumns=new Set(["t_pct_chg","t_open_pct","t_high_pct","t_low_pct","open_price","high_price","low_price","close_price","latest_price","stock_momentum","stock_rank","stock_rank_pct","concept_rank","concept_return","low_pct","open_pct","t1_low_pct","t1_close_price","t1_amount_yi","t1_turnover_rate","t1_turnover_rate_f","t1_market_cap_yi","t1_circ_mv_yi","amount_yi","amount_ratio","turnover_rate_f","volume_ratio","recommend_rank","recommend_score"]);
+    function sortedByState(source,state){ if(!state.key||!state.direction)return source.slice(); const key=state.key; const direction=state.direction; return source.map((row,index)=>({row,index})).sort((a,b)=>{ const av=a.row[key], bv=b.row[key]; const aBlank=av===null||av===undefined||av===""; const bBlank=bv===null||bv===undefined||bv===""; if(aBlank||bBlank){ if(aBlank&&bBlank)return a.index-b.index; return aBlank?1:-1; } let result=0; if(numericSortColumns.has(key)){ const an=Number(av),bn=Number(bv); if(Number.isFinite(an)&&Number.isFinite(bn))result=an-bn; else if(Number.isFinite(an))result=-1; else if(Number.isFinite(bn))result=1; else result=String(av).localeCompare(String(bv),"zh-CN"); }else{ result=String(av).localeCompare(String(bv),"zh-CN"); } return result?result*direction:a.index-b.index; }).map(item=>item.row); }
+    function sortedRows(){ return sortedByState(rows,sortState); }
+    function sortedRecommendedRows(){ return sortedByState(recommendedRows,recommendSortState); }
+    function sortResults(key){ if(sortState.key!==key){sortState={key,direction:1};}else if(sortState.direction===1){sortState.direction=-1;}else{sortState={key:"",direction:0};} renderTable(); }
+    function sortRecommendations(key){ if(recommendSortState.key!==key){recommendSortState={key,direction:1};}else if(recommendSortState.direction===1){recommendSortState.direction=-1;}else{recommendSortState={key:"",direction:0};} renderRecommendations(); }
+    function sortableHeader(key,label,state,handler){ const active=state.key===key; const indicator=active?(state.direction===1?"↑":"↓"):"↕"; return `<th class="${key==='code'?"code-col":""}" aria-sort="${active?(state.direction===1?"ascending":"descending"):"none"}"><button class="sort-button" type="button" onclick="${handler}('${key}')">${esc(label)}<span class="sort-indicator">${indicator}</span></button></th>`; }
+    function renderTable(){ const head=$("resultTable").querySelector("thead"); const body=$("resultTable").querySelector("tbody"); const defs=columnDefs.filter(x=>visibleColumns.includes(x[0])); head.innerHTML=`<tr><th class="select-col"><input type="checkbox" aria-label="全选" ${rows.length&&selectedCodes.size===rows.length?"checked":""} onchange="selectAllRows(this.checked)" /></th>${defs.map(([key,label])=>sortableHeader(key,label,sortState,"sortResults")).join("")}</tr>`; body.innerHTML=sortedRows().map(r=>{ const cells=defs.map(([key])=>cell(r,key)).join(""); return `<tr class="${r.recommended?"recommended-row":""}"><td class="select-col"><input type="checkbox" ${selectedCodes.has(r.code)?"checked":""} onchange="toggleRow('${esc(r.code)}',this.checked)" aria-label="选择${esc(r.name)}" /></td>${cells}</tr>`; }).join(""); $("resultCount").textContent=`共 ${rows.length} 只，已选 ${selectedCodes.size} 只`; }
+    function cell(r,key){ const raw=r[key]??""; if(key==="code") return `<td class="code-col"><a class="code-link" href="${esc(r.ths_url||`https://stockpage.10jqka.com.cn/${r.code}/`)}" onclick="openThs(event,'${esc(r.code)}')" target="_blank" rel="noopener">${esc(r.code)} ↗</a></td>`; if(key==="name") return `<td>${esc(r.name)}</td>`; if(key==="recommended") return `<td>${r.recommended?"推荐":""}</td>`; const signedPercent=["pct_chg","t_pct_chg","t_open_pct","t_high_pct","t_low_pct","stock_momentum","stock_rank_pct","concept_return","low_pct","open_pct","t1_low_pct","momentum_score","concept_score"]; if(signedPercent.includes(key)) return `<td class="${colorClass(raw)}">${esc(fmt(raw))}${raw!==""?"%":""}</td>`; if(["amount_ratio","turnover_rate_f","t1_turnover_rate","t1_turnover_rate_f","recommend_score"].includes(key)) return `<td>${esc(fmt(raw))}${raw!==""&&["turnover_rate_f","t1_turnover_rate","t1_turnover_rate_f"].includes(key)?"%":""}</td>`; if(["stock_rank","concept_rank","recommend_rank"].includes(key)) return `<td>${r.recommended&&key==="recommend_rank"?`<span class="recommend-badge">${esc(raw)}</span>`:esc(raw)}</td>`; if(key==="risk_flags") return `<td class="${raw&&raw!=="正常"?"risk":"muted"}">${esc(raw)}</td>`; if(key==="reason") return `<td class="reason" title="${esc(raw)}">${esc(raw)}</td>`; return `<td>${esc(raw)}</td>`; }
+    function toggleRow(code,on){ if(on) selectedCodes.add(code); else selectedCodes.delete(code); renderTable(); }
+    function selectAllRows(on){ selectedCodes=on?new Set(rows.map(r=>r.code)):new Set(); renderTable(); }
+    function invertSelection(){ selectedCodes=new Set(rows.filter(r=>!selectedCodes.has(r.code)).map(r=>r.code)); renderTable(); }
+    function selectRecommended(){ selectedCodes=new Set(recommendedRows.map(r=>r.code)); renderTable(); }
+    function selectedRows(){ return rows.filter(r=>selectedCodes.has(r.code)); }
+    async function copyText(text){ try{ await navigator.clipboard.writeText(text); setStatus(`已复制 ${text?text.split("\n").length:0} 行。`); }catch(e){ const area=document.createElement("textarea"); area.value=text; document.body.appendChild(area); area.select(); document.execCommand("copy"); area.remove(); setStatus("已复制到剪贴板。"); } }
+    function copySelected(kind){ const data=selectedRows(); if(!data.length){setStatus("请先选择股票。",true);return;} copyText(data.map(r=>kind==="name"?r.name:r.code).join("\n")); }
+    function copyAll(kind){ if(!rows.length){setStatus("当前没有筛选结果。",true);return;} copyText(rows.map(r=>kind==="name"?r.name:r.code).join("\n")); }
+    function copyRecommendedNames(){ if(!recommendedRows.length){setStatus("当前没有推荐股票。",true);return;} copyText(recommendedRows.map(r=>r.name).join("\n")); }
+    function exportCsv(){ if(!rows.length){setStatus("当前没有筛选结果。",true);return;} const defs=columnDefs.filter(x=>visibleColumns.includes(x[0])); const lines=[defs.map(x=>x[1]).join(","),...rows.map(r=>defs.map(([key])=>`"${String(r[key]??"").replaceAll('"','""')}"`).join(","))]; const blob=new Blob(["\ufeff"+lines.join("\n")],{type:"text/csv;charset=utf-8"}); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`cross_sectional_momentum_${$("endDate").value}.csv`; a.click(); URL.revokeObjectURL(a.href); }
+    function exportImage(){
+      if(!rows.length){setStatus("当前没有筛选结果。",true);return;}
+      const selected=selectedRows(); const exportRows=(selected.length?selected:rows).slice(0,800); const defs=[["code","股票代码"],["name","股票名称"]]; const widths=[170,260]; const width=widths.reduce((a,b)=>a+b,0); const rowHeight=34; const headerHeight=74; const canvas=document.createElement("canvas"); canvas.width=width*2; canvas.height=(headerHeight+rowHeight*(exportRows.length+1))*2; const ctx=canvas.getContext("2d"); ctx.scale(2,2); ctx.fillStyle="#0d1117"; ctx.fillRect(0,0,width,canvas.height/2); ctx.fillStyle="#e6edf3"; ctx.font="bold 18px Microsoft YaHei, Arial"; ctx.fillText("横截面动量策略股票清单",18,27); ctx.font="12px Microsoft YaHei, Arial"; ctx.fillStyle="#8b949e"; ctx.fillText(`T=${$("endDate").value}　共 ${exportRows.length} 条${selected.length?"（已选）":""}`,18,52); ctx.fillStyle="#161b22"; ctx.fillRect(0,headerHeight,width,rowHeight); ctx.font="bold 13px Microsoft YaHei, Arial"; let x=0; defs.forEach(([key,label],i)=>{ctx.fillStyle="#e6edf3";ctx.fillText(label,x+10,headerHeight+22);x+=widths[i];}); const text=(value,max)=>{let s=String(value??"");while(s.length>1&&ctx.measureText(s).width>max-18)s=s.slice(0,-1);return s.length<String(value??"").length?s+"…":s;}; exportRows.forEach((r,rowIndex)=>{const y=headerHeight+rowHeight*(rowIndex+1);ctx.fillStyle=rowIndex%2?"#111820":"#0d1117";ctx.fillRect(0,y,width,rowHeight);ctx.font="13px Microsoft YaHei, Arial";ctx.fillStyle="#58a6ff";ctx.fillText(text(r.code,widths[0]),10,y+22);ctx.fillStyle="#e6edf3";ctx.fillText(text(r.name,widths[1]),widths[0]+10,y+22);}); const a=document.createElement("a");a.href=canvas.toDataURL("image/png");a.download=`cross_sectional_momentum_codes_${$("endDate").value}.png`;a.click();setStatus(exportRows.length<rows.length?`图片已导出前 ${exportRows.length} 条，完整数据请导出 CSV。`:"图片已导出。");
+    }
+    function openThs(event,code){ const template=String(localStorage.getItem("thsAppUrlTemplate")||"").trim(); const mobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent); if(!template||!mobile)return; event.preventDefault(); const appUrl=template.replaceAll("{code}",encodeURIComponent(code)); const webUrl=`https://stockpage.10jqka.com.cn/${encodeURIComponent(code)}/`; window.location.href=appUrl; setTimeout(()=>{if(document.visibilityState==="visible")window.open(webUrl,"_blank");},900); }
+    function openColumns(){ $("columnsModal").classList.add("open"); renderColumns(); } function closeColumns(){ $("columnsModal").classList.remove("open"); } function closeColumnsOnBackdrop(e){ if(e.target.id==="columnsModal") closeColumns(); } function toggleLogs(){ $("logs").classList.toggle("show"); }
+    $("realtimeEnabled").addEventListener("change",()=>{ $("fetchRealtime").disabled=!bool("realtimeEnabled"); $("snapshotNote").textContent=bool("realtimeEnabled")?"已启用实时数据；“运行当前筛选”和交易日切换后的自动筛选都会读取当前时刻快照。":"实时数据默认关闭，当前使用收盘/历史数据。"; if(!bool("realtimeEnabled")&&refreshTimer) clearTimeout(refreshTimer); });
+    $("autoRunOnDateShift").addEventListener("change",()=>localStorage.setItem(autoRunDateShiftKey,String(bool("autoRunOnDateShift"))));
+    $("thsAppTemplate").addEventListener("change",()=>localStorage.setItem("thsAppUrlTemplate",$("thsAppTemplate").value.trim()));
+    ["scopeMain","scopeChinext","scopeStar","scopeBj","includeSt"].forEach(id=>$(id).addEventListener("change",updateScopeSummary));
+    restoreSectionState(); updateScopeSummary(); renderConditions(); renderColumns();
+  </script>
+</body>
+</html>

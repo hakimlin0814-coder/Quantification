@@ -1,0 +1,516 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>低估值现金流策略</title>
+  <style>
+    :root { --bg:#f6f7f9; --panel:#fff; --text:#172033; --muted:#657084; --line:#dfe3ea; --accent:#1769e0; --good:#087f5b; --bad:#c92a2a; --ink:#101828; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:"Microsoft YaHei", Arial, sans-serif; color:var(--text); background:var(--bg); }
+    header { background:var(--panel); border-bottom:1px solid var(--line); padding:14px 18px; }
+    .topbar { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; }
+    h1 { margin:0; font-size:20px; line-height:1.25; }
+    .header-actions { display:flex; align-items:center; gap:8px; }
+    .strategy-nav { width:190px; }
+    .controls { display:grid; grid-template-columns:repeat(6, minmax(120px, 1fr)); gap:10px; align-items:end; }
+    label { display:block; font-size:12px; color:var(--muted); margin-bottom:4px; }
+    input, select { width:100%; height:34px; border:1px solid var(--line); border-radius:6px; padding:0 8px; background:#fff; color:var(--text); }
+    .check { height:34px; display:flex; align-items:center; gap:8px; border:1px solid var(--line); border-radius:6px; padding:0 8px; background:#fff; color:var(--text); font-size:13px; }
+    .check input { width:auto; height:auto; }
+    button { height:34px; border:0; border-radius:6px; background:var(--accent); color:#fff; font-weight:700; cursor:pointer; padding:0 14px; }
+    button.secondary { background:#354052; }
+    button.ghost { background:#fff; color:var(--accent); border:1px solid var(--accent); }
+    button.mini-btn { height:26px; border-radius:5px; padding:0 8px; font-size:12px; background:#fff; color:var(--accent); border:1px solid var(--accent); font-weight:700; }
+    .icon-btn { width:34px; padding:0; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--line); background:#fff; color:var(--text); font-weight:800; }
+    main { padding:14px 18px 28px; }
+    .status { color:var(--muted); margin:8px 0 0; }
+    .bad { color:var(--bad); font-weight:700; }
+    .calc-panel { display:grid; grid-template-columns:minmax(180px, 1.1fr) auto minmax(260px, 3fr); gap:10px; align-items:end; background:#fff; border:1px solid var(--line); border-radius:8px; padding:12px; margin-bottom:12px; }
+    .calc-panel .status { margin:0; align-self:center; }
+    .cards { display:grid; grid-template-columns:repeat(6, minmax(130px, 1fr)); gap:10px; margin-bottom:12px; }
+    .metric { background:#fff; border:1px solid var(--line); border-radius:8px; padding:12px; min-height:78px; }
+    .metric span { display:block; color:var(--muted); font-size:12px; margin-bottom:6px; }
+    .metric strong { display:block; font-size:18px; line-height:1.3; overflow-wrap:anywhere; }
+    .metric.wide { grid-column:span 2; }
+    .metric.wide strong { font-size:14px; line-height:1.55; font-weight:700; }
+    .toolbar { display:flex; gap:8px; flex-wrap:wrap; margin:0 0 12px; }
+    .table-wrap { background:#fff; border:1px solid var(--line); border-radius:8px; overflow:auto; max-height:calc(100vh - 260px); position:relative; }
+    table { width:100%; border-collapse:collapse; min-width:1630px; }
+    th, td { padding:9px 10px; border-bottom:1px solid var(--line); text-align:center; font-size:13px; white-space:nowrap; }
+    th { position:sticky; top:0; background:#f0f3f7; cursor:pointer; user-select:none; z-index:3; }
+    .freeze-code-name th:nth-child(1), .freeze-code-name td:nth-child(1) { position:sticky; left:0; z-index:2; min-width:88px; width:88px; max-width:88px; overflow:hidden; text-overflow:ellipsis; background:#fff; box-shadow:1px 0 0 var(--line); }
+    .freeze-code-name th:nth-child(2), .freeze-code-name td:nth-child(2) { position:sticky; left:88px; z-index:2; min-width:126px; width:126px; max-width:126px; overflow:hidden; text-overflow:ellipsis; background:#fff; box-shadow:1px 0 0 var(--line); }
+    .freeze-code-name th:nth-child(1), .freeze-code-name th:nth-child(2) { top:0; z-index:5; background:#f0f3f7; }
+    .code-cell { color:var(--accent); font-weight:800; cursor:pointer; }
+    .positive { color:var(--good); font-weight:800; }
+    .probe-pass { color:var(--good); font-weight:800; }
+    .probe-fail { color:var(--bad); font-weight:800; }
+    .log { margin-top:12px; background:var(--ink); color:#d7e2f1; border-radius:8px; padding:12px; height:170px; overflow:auto; white-space:pre-wrap; }
+    .modal { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(16,24,40,.45); padding:18px; z-index:10; }
+    .modal.open { display:flex; }
+    .modal-card { width:min(860px, 100%); max-height:88vh; overflow:auto; background:#fff; border-radius:8px; box-shadow:0 18px 60px rgba(16,24,40,.24); border:1px solid var(--line); }
+    .modal-head { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 16px; border-bottom:1px solid var(--line); }
+    .modal-head h2 { margin:0; font-size:16px; }
+    .modal-body { padding:14px 16px 16px; color:#2d3748; line-height:1.7; }
+    .modal-body h3 { margin:14px 0 6px; font-size:15px; color:var(--text); }
+    .modal-body ul { margin:6px 0 0; padding-left:20px; }
+    .modal-body li { margin:4px 0; }
+    @media (max-width:900px) {
+      .topbar { align-items:flex-start; flex-direction:column; }
+      .header-actions { width:100%; }
+      .strategy-nav { flex:1; width:auto; }
+      .controls { grid-template-columns:repeat(2, minmax(130px, 1fr)); }
+      .calc-panel { grid-template-columns:1fr; }
+      .cards { grid-template-columns:repeat(2, minmax(130px, 1fr)); }
+      .metric.wide { grid-column:span 2; }
+      h1 { font-size:18px; }
+    }
+  </style>
+  <link rel="stylesheet" href="/app-layout.css" />
+</head>
+<body>
+  <header>
+    <div class="topbar">
+      <h1>低估值现金流策略</h1>
+      <div class="header-actions">
+        <select id="strategyNav" class="strategy-nav" onchange="goStrategy(this)" aria-label="策略切换">
+          <option value="/">大盘总览</option>
+          <option value="/mainline-review">主线复盘策略</option>
+          <option value="/concept-radar">同花顺概念雷达</option>
+          <option value="/first-limit">涨停板策略</option>
+          <option value="/canslim-tao">CANSLIM+RPS策略</option>
+          <option value="/value-fcf" selected>低估值现金流策略</option>
+          <option value="/dividend-low-vol">红利低波防守策略</option>
+          <option value="/stock-search">股票模糊搜索</option>
+          <option value="/realtime-ma">批量实时MA检查</option>
+        </select>
+        <button class="icon-btn" onclick="openHelp()" title="查看说明" aria-label="查看说明">?</button>
+      </div>
+    </div>
+    <div class="controls">
+      <div><label>复盘模式</label><select id="reviewMode"><option value="after_close">盘后复盘</option><option value="intraday">盘中预复盘</option></select></div>
+      <div><label>日期 YYYYMMDD</label><input id="endDate" /></div>
+      <div><label>展示数量</label><input id="topCount" type="number" min="1" step="1" value="100" /></div>
+      <div><label>PB上限</label><input id="maxPb" type="number" min="0" step="0.05" value="1" title="0 表示不限制" /></div>
+      <div><label>PE_TTM上限</label><input id="maxPe" type="number" min="0" step="0.5" value="15" title="0 表示不限制" /></div>
+      <div><label>ROE下限%</label><input id="minRoe" type="number" step="0.5" value="15" title="0 表示不限制" /></div>
+      <div><label>FCF率下限%</label><input id="minFcfYield" type="number" step="0.5" value="4" title="0 表示不限制" /></div>
+      <div><label>单股分析</label><input id="probeQuery" placeholder="代码或名称，如 601336" /></div>
+      <label class="check"><input id="excludeSt" type="checkbox" checked /> 排除ST</label>
+      <label class="check"><input id="excludeStar" type="checkbox" checked /> 排除科创板</label>
+      <label class="check"><input id="excludeChinext" type="checkbox" checked /> 排除创业板</label>
+      <button onclick="runStrategy()">开始筛选</button>
+      <button class="ghost" onclick="runStrategy()">分析单股</button>
+      <button class="secondary" onclick="downloadCsv()">导出CSV</button>
+      <button class="ghost" onclick="copyAllCodes()">复制代码</button>
+    </div>
+    <div id="status" class="status">等待筛选。</div>
+  </header>
+  <main>
+    <section class="calc-panel" aria-label="FCF计算">
+      <div><label>FCF计算</label><input id="fcfQuery" placeholder="输入代码或名称，如 601336" /></div>
+      <button onclick="calculateFcf()">执行计算</button>
+      <div id="fcfCalcStatus" class="status">输入股票代码或名称后执行。</div>
+    </section>
+    <div class="cards" id="fcfCalcCards"></div>
+    <div class="cards" id="summaryCards"></div>
+    <div class="cards" id="probeCards"></div>
+    <div class="table-wrap" id="probeWrap" style="display:none; max-height:260px;"><table id="probeTable" class="freeze-code-name"></table></div>
+    <div class="toolbar">
+      <button onclick="runStrategy()">刷新</button>
+      <button class="ghost" onclick="copyTopCodes()">复制前20</button>
+      <button class="secondary" onclick="downloadCsv()">导出CSV</button>
+    </div>
+    <div class="table-wrap"><table id="resultTable" class="freeze-code-name"></table></div>
+    <div class="log" id="logBox"></div>
+  </main>
+
+  <div class="modal" id="helpModal" onclick="closeHelpOnBackdrop(event)" aria-hidden="true">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+      <div class="modal-head">
+        <h2 id="helpTitle">低估值现金流策略说明</h2>
+        <button class="icon-btn" onclick="closeHelp()" title="关闭" aria-label="关闭">x</button>
+      </div>
+      <div class="modal-body">
+        <h3>策略定位</h3>
+        <ul>
+          <li>这个策略是“估值便宜 + 盈利质量不差 + 现金流真实”的观察池，不是自动买入信号。</li>
+          <li>它更适合找被市场压低估值、但仍能产生股东回报和现金流的公司，偏中低频、偏价值防守。</li>
+          <li>结果需要结合行业景气、资产质量、财报一次性项目、分红和负债结构再做人工判断。</li>
+        </ul>
+        <h3>核心指标口径</h3>
+        <ul>
+          <li>PB：市净率，默认要求小于 1。它代表市场价格低于账面净资产，但低 PB 也可能反映资产质量折价。</li>
+          <li>PE_TTM：滚动市盈率，默认要求小于 15，并且必须为正。负 PE 不会被当成便宜。</li>
+          <li>ROE：净资产收益率，默认要求大于 15%。这里优先使用 Tushare 财务指标；如果接口不支持全市场读取，会用东财业绩报表兜底。</li>
+          <li>FCF率：自由现金流收益率，默认要求大于 4%。精确口径为 TTM 自由现金流 / 总市值。</li>
+        </ul>
+        <h3>FCF怎么计算</h3>
+        <ul>
+          <li>优先口径：自由现金流 = 经营活动现金流净额 - 购建固定资产等支付的现金。</li>
+          <li>TTM口径：非年报期会尽量用“本期累计 + 上年年报 - 上年同期累计”换算滚动十二个月。</li>
+          <li>兜底口径：如果 Tushare 现金流接口要求逐股读取、无法全市场读取，页面会用东财现金流量表近似为“经营现金流 + 投资现金流”。</li>
+          <li>兜底口径不是严格自由现金流，结果表里的“FCF口径”会明确标出来，避免混用。</li>
+        </ul>
+        <h3>筛选顺序</h3>
+        <ul>
+          <li>第一步：读取股票基础信息、最新日线和 daily_basic 估值数据。</li>
+          <li>第二步：读取 ROE 和现金流数据，生成最近报告期和 TTM 现金流口径。</li>
+          <li>第三步：剔除无市值、无有效估值、PE 非正、PB 非正、ROE 或 FCF 不达标的股票。</li>
+          <li>第四步：按 FCF率、ROE、PE、PB 排序，优先展示现金流回报更高、盈利能力更强、估值更低的标的。</li>
+        </ul>
+        <h3>参数怎么调</h3>
+        <ul>
+          <li>PB上限：默认 1。想更严可设 0.8，想扩大样本可设 1.2。</li>
+          <li>PE_TTM上限：默认 15。成熟行业可以更低，成长性仍在的公司可适度放宽。</li>
+          <li>ROE下限：默认 15%。如果结果太少可降到 10%，如果只看优秀资产可提到 18% 或 20%。</li>
+          <li>FCF率下限：默认 4%。想找现金流更厚的公司可提到 6% 或 8%。</li>
+          <li>任一数值填 0 表示不限制该项，适合临时放宽观察。</li>
+        </ul>
+        <h3>读表方式</h3>
+        <ul>
+          <li>先看 PB、PE_TTM 是否真的便宜，再看 ROE 是否稳定高于门槛。</li>
+          <li>重点看 FCF率 和 TTM FCF亿，避免只靠账面利润筛到现金流很弱的公司。</li>
+          <li>看“ROE报告期”和“现金流报告期”，确认使用的是最近可用财报。</li>
+          <li>看“FCF口径”，如果出现东财近似口径，建议把它当作初筛线索，再打开财报核对资本开支和投资现金流构成。</li>
+        </ul>
+        <h3>风险提示</h3>
+        <ul>
+          <li>低 PB 可能来自坏账、存货、商誉、地产或周期资产折价，不等于安全。</li>
+          <li>高 ROE 可能来自高杠杆，需要结合资产负债率和现金流稳定性。</li>
+          <li>高 FCF率 可能来自一次性收款、资本开支短期收缩或周期高点，需要看多年连续性。</li>
+          <li>这个策略适合作为价值观察池，最好再叠加行业景气、分红、负债和价格趋势判断。</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <script src="/global-settings.js"></script>
+  <script src="/app-layout.js"></script>
+  <script src="/backtest.js"></script>
+  <script>
+    const today = new Date();
+    document.getElementById("endDate").value = `${today.getFullYear()}${String(today.getMonth()+1).padStart(2,"0")}${String(today.getDate()).padStart(2,"0")}`;
+    let rows = [];
+    let latestFinancial = {};
+    let latestTradeDate = "";
+    let latestProbe = {};
+    let latestFcfCalc = {};
+    let sortState = {};
+    const cols = [
+      ["code","代码"],["name","名称"],["stock_type","股票类型"],["industry","行业"],["close","收盘"],["pct_chg","涨跌%"],["amount_yi","成交额亿"],["market_cap_yi","总市值亿"],
+      ["pb","PB"],["pe_ttm","PE_TTM"],["roe","ROE%"],["fcf_yield","FCF率%"],["fcf_ttm_yi","TTM FCF亿"],["value_score","价值分"],
+      ["report_date","ROE报告期"],["cashflow_report_date","现金流报告期"],["fcf_note","FCF口径"],["reason","理由"]
+    ];
+    const probeCols = [["label","项目"],["value","当前值"],["op","条件"],["threshold","阈值"],["unit","单位"],["pass","是否通过"]];
+
+    function goStrategy(select) {
+      const target = select.value;
+      const current = window.location.pathname === "/index.html" ? "/" : window.location.pathname;
+      if (target && target !== current) {
+        if (window.matchMedia("(max-width: 900px)").matches) {
+          window.location.href = target;
+          return;
+        }
+        window.open(target, "_blank", "noopener");
+      }
+      select.value = current;
+    }
+
+    async function calculateFcf() {
+      const query = document.getElementById("fcfQuery").value.trim();
+      if (!query) {
+        setFcfCalcStatus("请输入股票代码或名称", true);
+        return;
+      }
+      const dataSource = getGlobalDataSourcePayload();
+      if (!dataSource) return;
+      setFcfCalcStatus("正在计算FCF，首次读取现金流量表会慢一些...");
+      const payload = {
+        ...dataSource,
+        review_mode: document.getElementById("reviewMode").value,
+        end_date: document.getElementById("endDate").value.trim(),
+        lookback_days: 70,
+        value_probe_query: query
+      };
+      try {
+        const res = await fetch("/api/value_fcf_calc", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload)});
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error || "FCF计算失败");
+        latestFcfCalc = data;
+        renderFcfCalc();
+        document.getElementById("logBox").textContent = (data.logs || []).join("\n");
+      } catch (err) {
+        setFcfCalcStatus(`FCF计算失败：${err.message}`, true);
+      }
+    }
+
+    function renderFcfCalc() {
+      const cards = document.getElementById("fcfCalcCards");
+      if (!latestFcfCalc || !latestFcfCalc.query) {
+        cards.innerHTML = "";
+        return;
+      }
+      if (!latestFcfCalc.found) {
+        cards.innerHTML = `<div class="metric wide"><span>FCF计算</span><strong class="probe-fail">${escapeHtml(latestFcfCalc.message || "未找到")}</strong></div>`;
+        setFcfCalcStatus(latestFcfCalc.message || "未找到股票", true);
+        return;
+      }
+      if (!latestFcfCalc.calculated) {
+        const stock = latestFcfCalc.stock || {};
+        cards.innerHTML = [
+          ["股票", `${stock.code || ""} ${stock.name || ""}`],
+          ["结果", latestFcfCalc.message || "暂无可用现金流数据", true]
+        ].map(([k,v,wide]) => `<div class="metric ${wide ? "wide" : ""}"><span>${escapeHtml(k)}</span><strong class="probe-fail">${escapeHtml(v)}</strong></div>`).join("");
+        setFcfCalcStatus(latestFcfCalc.message || "暂无可用现金流数据", true);
+        return;
+      }
+      const r = latestFcfCalc.result || {};
+      const items = [
+        ["股票", `${r.code || ""} ${r.name || ""}`],
+        ["TTM FCF", formatMetricValue(r.fcf_ttm_yi, "亿")],
+        ["最新FCF", formatMetricValue(r.latest_fcf_yi, "亿")],
+        ["FCF率", formatMetricValue(r.fcf_yield, "%")],
+        ["总市值", formatMetricValue(r.market_cap_yi, "亿")],
+        ["报告期", r.cashflow_report_date || "--"],
+        ["PB / PE_TTM", `${formatMetricValue(r.pb)} / ${formatMetricValue(r.pe_ttm)}`],
+        ["估值日", r.valuation_trade_date || "--"],
+        ["口径", r.formula || r.fcf_note || r.fcf_source || "", true]
+      ];
+      cards.innerHTML = items.map(([k,v,wide]) => (
+        `<div class="metric ${wide ? "wide" : ""}"><span>${escapeHtml(k)}</span><strong>${escapeHtml(v)}</strong></div>`
+      )).join("");
+      setFcfCalcStatus(`FCF计算完成：${r.code || ""} ${r.name || ""}`);
+    }
+
+    async function runStrategy() {
+      const dataSource = getGlobalDataSourcePayload();
+      if (!dataSource) return;
+      setStatus("正在筛选低估值现金流候选池，首次读取现金流量表会慢一些...");
+      const payload = {
+        ...dataSource,
+        review_mode: document.getElementById("reviewMode").value,
+        end_date: document.getElementById("endDate").value.trim(),
+        lookback_days: 70,
+        value_top_count: Number(document.getElementById("topCount").value),
+        value_max_pb: Number(document.getElementById("maxPb").value),
+        value_max_pe_ttm: Number(document.getElementById("maxPe").value),
+        value_min_roe: Number(document.getElementById("minRoe").value),
+        value_min_fcf_yield: Number(document.getElementById("minFcfYield").value),
+        value_exclude_st: document.getElementById("excludeSt").checked,
+        value_exclude_star: document.getElementById("excludeStar").checked,
+        value_exclude_chinext: document.getElementById("excludeChinext").checked,
+        value_probe_query: document.getElementById("probeQuery").value.trim()
+      };
+      try {
+        const res = await fetch("/api/value_fcf", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload)});
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error || "筛选失败");
+        rows = data.rows || [];
+        latestFinancial = data.financial || {};
+        latestTradeDate = data.trade_date || "";
+        latestProbe = data.probe || {};
+        renderSummary(payload);
+        renderProbe();
+        renderTable();
+        document.getElementById("logBox").textContent = (data.logs || []).join("\n");
+        setStatus(`筛选完成，交易日 ${latestTradeDate}，共 ${rows.length} 只`);
+      } catch (err) {
+        setStatus(`筛选失败：${err.message}`, true);
+      }
+    }
+
+    function renderSummary(payload) {
+      const items = [
+        ["交易日", latestTradeDate],
+        ["候选数量", rows.length],
+        ["PB / PE_TTM", `${payload.value_max_pb} / ${payload.value_max_pe_ttm}`],
+        ["ROE / FCF率", `${payload.value_min_roe}% / ${payload.value_min_fcf_yield}%`],
+        ["财务状态", latestFinancial.status || ""],
+        ["覆盖", `ROE ${latestFinancial.roe_rows ?? 0}，现金流 ${latestFinancial.cashflow_rows ?? 0}`],
+        ["财务说明", latestFinancial.note || "", true]
+      ];
+      document.getElementById("summaryCards").innerHTML = items.map(([k,v,wide]) => (
+        `<div class="metric ${wide ? "wide" : ""}"><span>${escapeHtml(k)}</span><strong>${escapeHtml(v)}</strong></div>`
+      )).join("");
+    }
+
+    function renderTable() {
+      const head = `<thead><tr>${cols.map(c=>`<th onclick="sortTable('${c[0]}')">${escapeHtml(c[1])} ${sortMark(c[0])}</th>`).join("")}<th>操作</th></tr></thead>`;
+      const body = `<tbody>${rows.map((r,i)=>`<tr>${cols.map(c=>`<td>${renderCell(r, c[0])}</td>`).join("")}<td><button class="mini-btn" onclick="copyRow(rows[${i}], cols)">复制整行</button></td></tr>`).join("")}</tbody>`;
+      document.getElementById("resultTable").innerHTML = head + body;
+    }
+
+    function renderProbe() {
+      const cards = document.getElementById("probeCards");
+      const wrap = document.getElementById("probeWrap");
+      if (!latestProbe || !latestProbe.query) {
+        cards.innerHTML = "";
+        wrap.style.display = "none";
+        return;
+      }
+      if (!latestProbe.found) {
+        cards.innerHTML = `<div class="metric wide"><span>单股分析</span><strong class="probe-fail">${escapeHtml(latestProbe.message || "未找到")}</strong></div>`;
+        wrap.style.display = "none";
+        return;
+      }
+      const cls = latestProbe.overall_pass ? "probe-pass" : "probe-fail";
+      cards.innerHTML = [
+        ["单股分析", latestProbe.query],
+        ["结论", latestProbe.summary || "", true],
+        ["是否符合", latestProbe.overall_pass ? "符合" : "不符合"]
+      ].map(([k,v,wide]) => `<div class="metric ${wide ? "wide" : ""}"><span>${escapeHtml(k)}</span><strong class="${k === "是否符合" ? cls : ""}">${escapeHtml(v)}</strong></div>`).join("");
+      const checks = latestProbe.checks || [];
+      const head = `<thead><tr>${probeCols.map(c=>`<th>${escapeHtml(c[1])}</th>`).join("")}<th>操作</th></tr></thead>`;
+      const body = `<tbody>${checks.map((r,i)=>`<tr>${probeCols.map(c=>`<td>${renderProbeCell(r, c[0])}</td>`).join("")}<td><button class="mini-btn" onclick="copyRow((latestProbe.checks || [])[${i}], probeCols)">复制整行</button></td></tr>`).join("")}</tbody>`;
+      const row = latestProbe.row || {};
+      const rowHead = `<thead><tr>${cols.map(c=>`<th>${escapeHtml(c[1])}</th>`).join("")}<th>操作</th></tr></thead>`;
+      const rowBody = `<tbody><tr>${cols.map(c=>`<td>${renderCell(row, c[0])}</td>`).join("")}<td><button class="mini-btn" onclick="copyRow(latestProbe.row, cols)">复制整行</button></td></tr></tbody>`;
+      document.getElementById("probeTable").innerHTML = rowHead + rowBody + head + body;
+      wrap.style.display = "";
+    }
+
+    function renderProbeCell(row, key) {
+      const value = key === "pass" ? (row.pass ? "通过" : "未通过") : (row[key] ?? "");
+      const cls = key === "pass" ? (row.pass ? "probe-pass" : "probe-fail") : "";
+      return `<span class="${cls}">${escapeHtml(value)}</span>`;
+    }
+
+    function renderCell(row, key) {
+      const value = row[key] ?? "";
+      if (key === "code") return `<span class="code-cell" title="点击复制代码" onclick="copyCode('${escapeJs(value)}')">${escapeHtml(value)}</span>`;
+      if (["roe","fcf_yield"].includes(key) && Number(value) > 0) return `<span class="positive">${escapeHtml(value)}</span>`;
+      return escapeHtml(value);
+    }
+
+    function sortMark(key) {
+      if (sortState.key !== key) return "";
+      return sortState.dir === "asc" ? "▲" : "▼";
+    }
+
+    function sortTable(key) {
+      const dir = sortState.key === key && sortState.dir === "desc" ? "asc" : "desc";
+      sortState = {key, dir};
+      rows.sort((a, b) => compareCell(a[key], b[key], dir));
+      renderTable();
+    }
+
+    function compareCell(a, b, dir) {
+      const na = parseFloat(a), nb = parseFloat(b);
+      const result = (!Number.isNaN(na) && !Number.isNaN(nb)) ? na - nb : String(a ?? "").localeCompare(String(b ?? ""), "zh-Hans-CN");
+      return dir === "asc" ? result : -result;
+    }
+
+    function getCodes(limit=0) {
+      const selected = limit > 0 ? rows.slice(0, limit) : rows;
+      return [...new Set(selected.map(r => String(r.code || "").trim()).filter(Boolean))];
+    }
+
+    async function copyCode(code) {
+      await navigator.clipboard.writeText(code);
+      setStatus(`已复制 ${code}`);
+    }
+
+    async function copyRow(row, columns) {
+      if (!row) return;
+      const header = columns.map(c => c[1]).join("\t");
+      const line = columns.map(c => String(row[c[0]] ?? "").replace(/\s+/g, " ").trim()).join("\t");
+      await navigator.clipboard.writeText(`${header}\n${line}`);
+      setStatus("已复制整行数据和表头");
+    }
+
+    async function copyAllCodes() {
+      const codes = getCodes();
+      if (!codes.length) { alert("暂无数据"); return; }
+      await navigator.clipboard.writeText(codes.join("\n"));
+      setStatus(`已复制 ${codes.length} 个代码`);
+    }
+
+    async function copyTopCodes() {
+      const codes = getCodes(20);
+      if (!codes.length) { alert("暂无数据"); return; }
+      await navigator.clipboard.writeText(codes.join("\n"));
+      setStatus(`已复制前 ${codes.length} 个代码`);
+    }
+
+    function downloadCsv() {
+      if (!rows.length) { alert("暂无数据"); return; }
+      const keys = cols.map(c => c[0]);
+      const csv = [keys.join(",")].concat(rows.map(r => keys.map(k => `"${String(r[k] ?? "").replaceAll('"','""')}"`).join(","))).join("\n");
+      const blob = new Blob(["\ufeff" + csv], {type:"text/csv;charset=utf-8"});
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `value_fcf_${new Date().toISOString().slice(0,10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    function setStatus(text, bad=false) {
+      const el = document.getElementById("status");
+      el.textContent = text;
+      el.className = bad ? "status bad" : "status";
+    }
+
+    function setFcfCalcStatus(text, bad=false) {
+      const el = document.getElementById("fcfCalcStatus");
+      el.textContent = text;
+      el.className = bad ? "status bad" : "status";
+    }
+
+    function formatMetricValue(value, unit="") {
+      if (value === "" || value === null || value === undefined) return "--";
+      return `${value}${unit}`;
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch]));
+    }
+
+    function escapeJs(value) {
+      return String(value ?? "").replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+    }
+    function openHelp() {
+      const modal = document.getElementById("helpModal");
+      modal.classList.add("open");
+      modal.setAttribute("aria-hidden", "false");
+    }
+    function closeHelp() {
+      const modal = document.getElementById("helpModal");
+      modal.classList.remove("open");
+      modal.setAttribute("aria-hidden", "true");
+    }
+    function closeHelpOnBackdrop(event) {
+      if (event.target.id === "helpModal") closeHelp();
+    }
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape") closeHelp();
+    });
+    document.getElementById("fcfQuery").addEventListener("keydown", event => {
+      if (event.key === "Enter") calculateFcf();
+    });
+    initBacktestPanel({
+      strategy: "value_fcf",
+      getPayload: () => {
+        const dataSource = getGlobalDataSourcePayload();
+        if (!dataSource) return null;
+        return {
+          ...dataSource,
+          review_mode: "after_close",
+          end_date: document.getElementById("endDate").value.trim(),
+          lookback_days: 70,
+          value_top_count: Number(document.getElementById("topCount").value),
+          value_max_pb: Number(document.getElementById("maxPb").value),
+          value_max_pe_ttm: Number(document.getElementById("maxPe").value),
+          value_min_roe: Number(document.getElementById("minRoe").value),
+          value_min_fcf_yield: Number(document.getElementById("minFcfYield").value),
+          value_exclude_st: document.getElementById("excludeSt").checked,
+          value_exclude_star: document.getElementById("excludeStar").checked,
+          value_exclude_chinext: document.getElementById("excludeChinext").checked,
+          value_probe_query: ""
+        };
+      }
+    });
+  </script>
+</body>
+</html>

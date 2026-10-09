@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>股票模糊搜索</title>
+  <style>
+    :root { --bg:#f6f7f9; --panel:#fff; --text:#172033; --muted:#657084; --line:#dfe3ea; --accent:#1769e0; --good:#087f5b; --bad:#c92a2a; --ink:#101828; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:"Microsoft YaHei", Arial, sans-serif; color:var(--text); background:var(--bg); }
+    header { background:var(--panel); border-bottom:1px solid var(--line); padding:14px 18px; }
+    .topbar { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; }
+    h1 { margin:0; font-size:20px; line-height:1.25; }
+    .header-actions { display:flex; align-items:center; gap:8px; }
+    .strategy-nav { width:190px; }
+    .controls { display:grid; grid-template-columns:2fr 150px repeat(4, minmax(110px, 1fr)); gap:10px; align-items:end; }
+    label { display:block; font-size:12px; color:var(--muted); margin-bottom:4px; }
+    input, select { width:100%; height:34px; border:1px solid var(--line); border-radius:6px; padding:0 8px; background:#fff; color:var(--text); }
+    button { height:34px; border:0; border-radius:6px; background:var(--accent); color:#fff; font-weight:700; cursor:pointer; padding:0 14px; }
+    button.secondary { background:#354052; }
+    button.ghost { background:#fff; color:var(--accent); border:1px solid var(--accent); }
+    button.mini-btn { height:26px; border-radius:5px; padding:0 8px; font-size:12px; background:#fff; color:var(--accent); border:1px solid var(--accent); font-weight:700; }
+    main { padding:14px 18px 28px; }
+    .status { color:var(--muted); margin:8px 0 0; }
+    .bad { color:var(--bad); font-weight:700; }
+    .cards { display:grid; grid-template-columns:repeat(4, minmax(150px, 1fr)); gap:10px; margin-bottom:12px; }
+    .metric { background:#fff; border:1px solid var(--line); border-radius:8px; padding:12px; min-height:78px; }
+    .metric span { display:block; color:var(--muted); font-size:12px; margin-bottom:6px; }
+    .metric strong { display:block; font-size:18px; line-height:1.3; overflow-wrap:anywhere; }
+    .toolbar { display:flex; gap:8px; flex-wrap:wrap; margin:0 0 12px; }
+    .table-wrap { background:#fff; border:1px solid var(--line); border-radius:8px; overflow:auto; max-height:calc(100vh - 260px); position:relative; }
+    table { width:100%; border-collapse:collapse; min-width:1280px; }
+    th, td { padding:9px 10px; border-bottom:1px solid var(--line); text-align:center; font-size:13px; white-space:nowrap; }
+    th { position:sticky; top:0; background:#f0f3f7; cursor:pointer; user-select:none; z-index:3; }
+    .freeze-code-name th:nth-child(1), .freeze-code-name td:nth-child(1) { position:sticky; left:0; z-index:2; min-width:88px; width:88px; max-width:88px; overflow:hidden; text-overflow:ellipsis; background:#fff; box-shadow:1px 0 0 var(--line); }
+    .freeze-code-name th:nth-child(2), .freeze-code-name td:nth-child(2) { position:sticky; left:88px; z-index:2; min-width:126px; width:126px; max-width:126px; overflow:hidden; text-overflow:ellipsis; background:#fff; box-shadow:1px 0 0 var(--line); }
+    .freeze-code-name th:nth-child(1), .freeze-code-name th:nth-child(2) { top:0; z-index:5; background:#f0f3f7; }
+    .code-cell { color:var(--accent); font-weight:800; cursor:pointer; }
+    .positive { color:var(--good); font-weight:800; }
+    .log { margin-top:12px; background:var(--ink); color:#d7e2f1; border-radius:8px; padding:12px; height:150px; overflow:auto; white-space:pre-wrap; }
+    @media (max-width:900px) {
+      .topbar { align-items:flex-start; flex-direction:column; }
+      .header-actions { width:100%; }
+      .strategy-nav { flex:1; width:auto; }
+      .controls { grid-template-columns:repeat(2, minmax(130px, 1fr)); }
+      .cards { grid-template-columns:repeat(2, minmax(130px, 1fr)); }
+      h1 { font-size:18px; }
+    }
+  </style>
+  <link rel="stylesheet" href="/app-layout.css" />
+</head>
+<body>
+  <header>
+    <div class="topbar">
+      <h1>股票模糊搜索</h1>
+      <div class="header-actions">
+        <select id="strategyNav" class="strategy-nav" onchange="goStrategy(this)" aria-label="策略切换">
+          <option value="/">大盘总览</option>
+          <option value="/mainline-review">主线复盘策略</option>
+          <option value="/concept-radar">同花顺概念雷达</option>
+          <option value="/first-limit">涨停板策略</option>
+          <option value="/canslim-tao">CANSLIM+RPS策略</option>
+          <option value="/value-fcf">低估值现金流策略</option>
+          <option value="/dividend-low-vol">红利低波防守策略</option>
+          <option value="/stock-search" selected>股票模糊搜索</option>
+          <option value="/realtime-ma">批量实时MA检查</option>
+        </select>
+      </div>
+    </div>
+    <div class="controls">
+      <div><label>股票名称 / 代码 / 拼音</label><input id="searchQuery" placeholder="例：羊、yang、银行、601398、pa" /></div>
+      <div><label>最多返回</label><input id="resultLimit" type="number" min="1" step="1" value="500" /></div>
+      <button onclick="runSearch()">搜索</button>
+      <button class="ghost" onclick="exampleSearch('羊')">羊</button>
+      <button class="ghost" onclick="exampleSearch('yang')">yang</button>
+      <button class="secondary" onclick="downloadCsv()">导出CSV</button>
+    </div>
+    <div id="status" class="status">输入股票名称、代码或拼音片段开始搜索。</div>
+  </header>
+  <main>
+    <div class="cards" id="summaryCards"></div>
+    <div class="toolbar">
+      <button onclick="runSearch()">刷新</button>
+      <button class="ghost" onclick="copyAllCodes()">复制全部代码</button>
+      <button class="ghost" onclick="copyTopCodes()">复制前20</button>
+      <button class="secondary" onclick="downloadCsv()">导出CSV</button>
+    </div>
+    <div class="table-wrap"><table id="resultTable" class="freeze-code-name"></table></div>
+    <div class="log" id="logBox"></div>
+  </main>
+
+  <script src="/global-settings.js"></script>
+  <script src="/app-layout.js"></script>
+  <script>
+    let rows = [];
+    let latestQuery = "";
+    let pinyinMode = "";
+    let sortState = {};
+    const cols = [
+      ["code","代码"],["name","名称"],["stock_type","股票类型"],["industry","行业"],["area","地区"],["market","市场"],["list_date","上市日"],
+      ["pinyin","拼音"],["initials","首字母"],["match_score","匹配分"],["match_reason","匹配原因"]
+    ];
+
+    function goStrategy(select) {
+      const target = select.value;
+      const current = window.location.pathname === "/index.html" ? "/" : window.location.pathname;
+      if (target && target !== current) {
+        if (window.matchMedia("(max-width: 900px)").matches) {
+          window.location.href = target;
+          return;
+        }
+        window.open(target, "_blank", "noopener");
+      }
+      select.value = current;
+    }
+
+    async function runSearch() {
+      const dataSource = getGlobalDataSourcePayload();
+      if (!dataSource) return;
+      const query = document.getElementById("searchQuery").value.trim();
+      if (!query) {
+        setStatus("请输入股票名称、代码或拼音片段。", true);
+        return;
+      }
+      setStatus("正在搜索股票基础信息...");
+      const payload = {
+        ...dataSource,
+        end_date: todayText(),
+        stock_search_query: query,
+        stock_search_limit: Number(document.getElementById("resultLimit").value)
+      };
+      try {
+        const res = await fetch("/api/stock_search", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload)});
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error || "搜索失败");
+        rows = data.rows || [];
+        latestQuery = data.query || query;
+        pinyinMode = data.pinyin_mode || "";
+        renderSummary();
+        renderTable();
+        document.getElementById("logBox").textContent = (data.logs || []).join("\n");
+        setStatus(`搜索完成：${latestQuery}，共 ${rows.length} 条`);
+      } catch (err) {
+        setStatus(`搜索失败：${err.message}`, true);
+      }
+    }
+
+    function exampleSearch(value) {
+      document.getElementById("searchQuery").value = value;
+      runSearch();
+    }
+
+    function todayText() {
+      const now = new Date();
+      return `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(now.getDate()).padStart(2, "0")}`;
+    }
+
+    function renderSummary() {
+      const items = [
+        ["查询", latestQuery],
+        ["结果数", rows.length],
+        ["拼音模式", pinyinMode],
+        ["提示", pinyinMode === "pypinyin" ? "完整拼音库" : "内置轻量映射，已覆盖常见公司名用字"]
+      ];
+      document.getElementById("summaryCards").innerHTML = items.map(([k,v]) => (
+        `<div class="metric"><span>${escapeHtml(k)}</span><strong>${escapeHtml(v)}</strong></div>`
+      )).join("");
+    }
+
+    function renderTable() {
+      const head = `<thead><tr>${cols.map(c=>`<th onclick="sortTable('${c[0]}')">${escapeHtml(c[1])} ${sortMark(c[0])}</th>`).join("")}<th>操作</th></tr></thead>`;
+      const body = rows.length
+        ? `<tbody>${rows.map((r,i)=>`<tr>${cols.map(c=>`<td>${renderCell(r, c[0])}</td>`).join("")}<td><button class="mini-btn" onclick="copyRow(rows[${i}])">复制整行</button></td></tr>`).join("")}</tbody>`
+        : `<tbody><tr><td colspan="${cols.length + 1}">暂无结果</td></tr></tbody>`;
+      document.getElementById("resultTable").innerHTML = head + body;
+    }
+
+    function renderCell(row, key) {
+      const value = row[key] ?? "";
+      if (key === "code") return `<span class="code-cell" title="点击复制代码" onclick="copyCode('${escapeJs(value)}')">${escapeHtml(value)}</span>`;
+      if (key === "match_score") return `<span class="positive">${escapeHtml(value)}</span>`;
+      return escapeHtml(value);
+    }
+
+    function sortMark(key) {
+      if (sortState.key !== key) return "";
+      return sortState.dir === "asc" ? "▲" : "▼";
+    }
+
+    function sortTable(key) {
+      const dir = sortState.key === key && sortState.dir === "desc" ? "asc" : "desc";
+      sortState = {key, dir};
+      rows.sort((a, b) => compareCell(a[key], b[key], dir));
+      renderTable();
+    }
+
+    function compareCell(a, b, dir) {
+      const na = parseFloat(a), nb = parseFloat(b);
+      const result = (!Number.isNaN(na) && !Number.isNaN(nb)) ? na - nb : String(a ?? "").localeCompare(String(b ?? ""), "zh-Hans-CN");
+      return dir === "asc" ? result : -result;
+    }
+
+    function getCodes(limit=0) {
+      const selected = limit > 0 ? rows.slice(0, limit) : rows;
+      return [...new Set(selected.map(r => String(r.code || "").trim()).filter(Boolean))];
+    }
+
+    async function copyCode(code) {
+      await navigator.clipboard.writeText(code);
+      setStatus(`已复制 ${code}`);
+    }
+
+    async function copyRow(row) {
+      if (!row) return;
+      const header = cols.map(c => c[1]).join("\t");
+      const line = cols.map(c => String(row[c[0]] ?? "").replace(/\s+/g, " ").trim()).join("\t");
+      await navigator.clipboard.writeText(`${header}\n${line}`);
+      setStatus("已复制整行数据和表头");
+    }
+
+    async function copyAllCodes() {
+      const codes = getCodes();
+      if (!codes.length) { alert("暂无数据"); return; }
+      await navigator.clipboard.writeText(codes.join("\n"));
+      setStatus(`已复制 ${codes.length} 个代码`);
+    }
+
+    async function copyTopCodes() {
+      const codes = getCodes(20);
+      if (!codes.length) { alert("暂无数据"); return; }
+      await navigator.clipboard.writeText(codes.join("\n"));
+      setStatus(`已复制前 ${codes.length} 个代码`);
+    }
+
+    function downloadCsv() {
+      if (!rows.length) { alert("暂无数据"); return; }
+      const csv = [cols.map(c => c[1]).join(",")].concat(rows.map(r => cols.map(c => `"${String(r[c[0]] ?? "").replaceAll('"','""')}"`).join(","))).join("\n");
+      const blob = new Blob(["\ufeff" + csv], {type:"text/csv;charset=utf-8"});
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `stock_search_${latestQuery || "query"}_${new Date().toISOString().slice(0,10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    function setStatus(text, bad=false) {
+      const el = document.getElementById("status");
+      el.textContent = text;
+      el.className = bad ? "status bad" : "status";
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch]));
+    }
+
+    function escapeJs(value) {
+      return String(value ?? "").replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+    }
+
+    document.getElementById("searchQuery").addEventListener("keydown", event => {
+      if (event.key === "Enter") runSearch();
+    });
+  </script>
+</body>
+</html>

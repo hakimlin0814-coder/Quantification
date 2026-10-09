@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ETF实时强度决策</title>
+  <link rel="stylesheet" href="/app-layout.css" />
+  <style>
+    :root { --line:var(--app-border); --panel:var(--app-panel); --soft:var(--app-panel-soft); --text:var(--app-text); --muted:var(--app-muted); --accent:var(--app-accent); --good:var(--app-good); --warn:var(--app-warn); --bad:var(--app-bad); }
+    * { box-sizing:border-box; } body { margin:0; color:var(--text); background:var(--app-bg); font-family:"Microsoft YaHei",Arial,sans-serif; }
+    header { background:var(--app-panel); border-bottom:1px solid var(--line); padding:14px 18px; } .topbar { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; }
+    h1 { margin:0; font-size:20px; } .header-actions,.toolbar,.quick-actions { display:flex; gap:8px; align-items:center; flex-wrap:wrap; } .strategy-nav { width:220px; }
+    .controls { display:grid; grid-template-columns:minmax(220px,2fr) repeat(4,minmax(118px,1fr)); gap:10px; align-items:end; } label { display:block; margin-bottom:4px; color:var(--muted); font-size:12px; }
+    input,select { width:100%; height:34px; padding:0 8px; color:var(--text); background:var(--soft); border:1px solid var(--line); border-radius:6px; } button { height:34px; padding:0 13px; border:1px solid transparent; border-radius:6px; background:var(--app-accent-strong); color:#fff; font-weight:800; cursor:pointer; }
+    button.secondary { color:var(--text); background:var(--app-panel-hover); border-color:var(--line); } button.ghost,.mini-btn { color:var(--accent); background:var(--soft); border-color:var(--line); } button.mini-btn { height:26px; padding:0 8px; font-size:12px; }
+    main { padding:14px 18px 28px; } .status { margin:8px 0 0; color:var(--muted); } .bad { color:var(--bad); font-weight:800; }
+    .cards { display:grid; grid-template-columns:repeat(5,minmax(130px,1fr)); gap:10px; margin:0 0 12px; } .metric { min-height:78px; padding:12px; border:1px solid var(--line); border-radius:8px; background:var(--panel); } .metric span { display:block; color:var(--muted); font-size:12px; margin-bottom:6px; } .metric strong { display:block; font-size:18px; }
+    .table-wrap { position:relative; max-height:calc(100vh - 310px); overflow:auto; margin-bottom:12px; border:1px solid var(--line); border-radius:8px; background:var(--panel); } table { width:100%; min-width:1180px; border-collapse:collapse; } th,td { padding:9px 10px; border-bottom:1px solid var(--line); text-align:center; white-space:nowrap; font-size:13px; } th { position:sticky; top:0; z-index:3; background:var(--app-panel-hover); cursor:pointer; } .select-cell { width:42px; min-width:42px; padding:8px 6px; } .select-cell input { width:16px; height:16px; vertical-align:middle; } .freeze th:nth-child(1),.freeze td:nth-child(1) { position:sticky; left:0; z-index:2; background:var(--panel); box-shadow:1px 0 var(--line); } .freeze th:nth-child(2),.freeze td:nth-child(2) { position:sticky; left:42px; z-index:2; background:var(--panel); box-shadow:1px 0 var(--line); } .freeze th:nth-child(3),.freeze td:nth-child(3) { position:sticky; left:100px; z-index:2; background:var(--panel); box-shadow:1px 0 var(--line); } .freeze th:nth-child(1),.freeze th:nth-child(2),.freeze th:nth-child(3) { z-index:5; background:var(--app-panel-hover); }
+    .state-buy { color:var(--good); font-weight:900; } .state-wait,.state-watch { color:var(--warn); font-weight:900; } .state-bad { color:var(--bad); font-weight:900; } .score { color:var(--accent); font-weight:900; } .reason { max-width:250px; overflow:hidden; text-overflow:ellipsis; text-align:left; }
+    .diagnosis { display:none; margin:0 0 12px; padding:14px; border:1px solid var(--line); border-radius:8px; background:var(--panel); } .diagnosis.open { display:block; } .diagnosis-grid { display:grid; grid-template-columns:repeat(3,minmax(160px,1fr)); gap:10px; } .diag-item { padding:10px; border:1px solid var(--line); border-radius:7px; background:var(--soft); } .diag-item span { display:block; color:var(--muted); font-size:12px; margin-bottom:5px; } .diag-item strong { overflow-wrap:anywhere; }
+    .modal { display:none; position:fixed; inset:0; z-index:200; align-items:center; justify-content:center; padding:18px; background:rgba(0,0,0,.62); touch-action:auto; } .modal.open { display:flex; } .modal-card { display:flex; flex-direction:column; width:min(860px,100%); max-height:min(760px,calc(100dvh - 36px)); overflow:hidden; border:1px solid var(--line); border-radius:12px; background:var(--app-panel); box-shadow:0 18px 60px rgba(0,0,0,.5); } .modal-head,.modal-foot { position:relative; z-index:2; display:flex; flex:0 0 auto; align-items:center; justify-content:space-between; gap:10px; padding:14px 16px; background:var(--app-panel); border-bottom:1px solid var(--line); } .modal-foot { border-top:1px solid var(--line); border-bottom:0; justify-content:flex-end; } .modal-head h2 { margin:0; font-size:17px; } .modal-body { flex:1 1 auto; min-height:0; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:16px; } .modal button,.modal input,.modal label { touch-action:manipulation; } body.etf-modal-open { overflow:hidden; } .settings-grid { display:grid; grid-template-columns:repeat(3,minmax(150px,1fr)); gap:12px; } .setting-section { grid-column:1/-1; margin:4px 0 0; color:var(--accent); font-size:14px; font-weight:900; } .column-grid { display:grid; grid-template-columns:repeat(3,minmax(150px,1fr)); gap:8px; } .check { display:flex; gap:8px; align-items:center; min-height:34px; padding:6px 8px; border:1px solid var(--line); border-radius:6px; color:var(--text); font-size:13px; } .check input { width:auto; height:auto; }
+    .log { height:140px; overflow:auto; margin-top:12px; padding:12px; color:#d7e2f1; background:#101828; border-radius:8px; white-space:pre-wrap; } .explain h3 { margin:14px 0 7px; font-size:15px; color:var(--accent); } .explain h3:first-child { margin-top:0; } .explain p,.explain li { color:var(--text); line-height:1.75; } .explain p { margin:4px 0 10px; } .explain ul { margin:5px 0 12px; padding-left:20px; }
+    @media (max-width:900px) { .topbar { flex-direction:column; align-items:flex-start; } .header-actions { width:100%; } .strategy-nav { flex:1; width:auto; } .controls { grid-template-columns:1fr 1fr; } .controls > div:first-child { grid-column:1/-1; } .cards { grid-template-columns:repeat(2,minmax(130px,1fr)); } .diagnosis-grid,.settings-grid,.column-grid { grid-template-columns:1fr 1fr; } .modal { align-items:flex-end; padding:0; } .modal-card { width:100%; max-height:calc(100dvh - env(safe-area-inset-top)); border-radius:14px 14px 0 0; } .modal-foot { padding-bottom:calc(14px + env(safe-area-inset-bottom)); } .modal-foot button,.modal-head button { min-height:44px; } }
+    @media (max-width:640px) { header { padding:12px 10px; } main { padding:10px 8px 22px; } h1 { font-size:18px; } .header-actions,.toolbar,.quick-actions { width:100%; gap:6px; } .strategy-nav { width:100%; } .controls { grid-template-columns:1fr; gap:8px; } .controls > button,.toolbar > button { flex:1 1 calc(50% - 6px); padding:0 8px; font-size:12px; } .cards { grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; } .metric { min-height:64px; padding:9px; } .metric strong { font-size:15px; } .table-wrap { max-height:calc(100dvh - 285px); margin-left:-2px; margin-right:-2px; overflow-x:scroll; overflow-y:auto; border-radius:7px; -webkit-overflow-scrolling:touch; overscroll-behavior-x:none; touch-action:auto; } table { width:max-content; min-width:980px; } th,td { padding:8px 7px; font-size:12px; } .select-cell { width:36px; min-width:36px; padding:7px 4px; } .freeze th:nth-child(2),.freeze td:nth-child(2) { left:36px; width:50px; min-width:50px; } .freeze th:nth-child(3),.freeze td:nth-child(3) { position:static; box-shadow:none; } .freeze th:nth-child(1),.freeze td:nth-child(1),.freeze th:nth-child(2),.freeze td:nth-child(2) { background:var(--panel); } .freeze th:nth-child(1),.freeze th:nth-child(2) { background:var(--app-panel-hover); } .mini-btn { width:132px; max-width:132px; height:auto; min-height:30px; line-height:1.25; white-space:normal; } .reason { max-width:180px; } .log { height:96px; font-size:12px; } .column-grid,.settings-grid,.diagnosis-grid { grid-template-columns:1fr; } .modal-foot { display:grid; grid-template-columns:1fr 1fr; } .modal-foot button { width:100%; } }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="topbar"><h1>ETF实时强度决策</h1><div class="header-actions"><select id="strategyNav" class="strategy-nav" onchange="goStrategy(this)"><option value="/etf-market" selected>ETF实时强度</option><option value="/">大盘总览</option><option value="/short-mainline">短线主线</option><option value="/canslim-tao">CANSLIM+RPS</option><option value="/realtime-ma">实时MA检查</option></select></div></div>
+    <div class="controls">
+      <div><label>单ETF诊断（代码或名称）</label><input id="probeQuery" placeholder="例：510300、沪深300ETF" /></div>
+      <div><label>快照日期</label><input id="endDate" /></div>
+      <button onclick="runMarket(true)">诊断ETF</button>
+      <button onclick="runMarket(false)">刷新全部ETF</button>
+      <button class="secondary" onclick="openModal('settingsModal')">参数设置</button>
+    </div>
+    <div id="status" class="status">点击“刷新全部ETF”生成全市场统一评分。</div>
+  </header>
+  <main>
+    <div class="cards" id="summaryCards"></div>
+    <div class="toolbar"><button onclick="runMarket(false)">手动刷新</button><button class="ghost" onclick="openModal('columnsModal')">列设置</button><button class="ghost" onclick="copyTopCodes()">复制可买代码</button><button class="secondary" onclick="downloadCsv()">导出CSV</button></div>
+    <section id="diagnosis" class="diagnosis"></section>
+    <div class="table-wrap keep-mobile-table" data-mobile-cards="off"><table id="resultTable" class="freeze" data-mobile-cards="off"></table></div>
+    <div id="logBox" class="log"></div>
+  </main>
+
+  <div id="settingsModal" class="modal" onclick="closeOnBackdrop(event,'settingsModal')"><div class="modal-card"><div class="modal-head"><h2>策略参数</h2><button class="ghost" onclick="closeModal('settingsModal')">关闭</button></div><div class="modal-body"><div class="settings-grid" id="settingsForm"></div></div><div class="modal-foot"><button class="ghost" onclick="restoreDefaults()">恢复默认</button><button onclick="saveSettings()">应用参数</button></div></div></div>
+  <div id="columnsModal" class="modal" onclick="closeOnBackdrop(event,'columnsModal')"><div class="modal-card"><div class="modal-head"><h2>显示列</h2><button class="ghost" onclick="closeModal('columnsModal')">关闭</button></div><div class="modal-body"><div class="column-grid" id="columnForm"></div></div><div class="modal-foot"><button class="ghost" onclick="restoreColumns()">默认列</button><button onclick="saveColumns()">应用列</button></div></div></div>
+
+  <script src="/global-settings.js"></script><script src="/app-layout.js"></script>
+  <script>
+    const DEFAULTS = { etf_min_history_days:60, etf_score_threshold:80, etf_top_n:3, etf_weight_recent:35, etf_weight_intraday:25, etf_weight_trend:15, etf_weight_liquidity:15, etf_weight_quality:10, etf_overheat_ret5:15, etf_overheat_ma20:15, etf_expected_hold_days:5 };
+    // v2 将新增的 T+0/T+1 默认列纳入默认视图；旧列配置不会把它意外隐藏。
+    const SETTINGS_KEY = 'quant_review_etf_settings_v1', COLUMNS_KEY = 'quant_review_etf_columns_v2';
+    let settings = {...DEFAULTS}, rows = [], latest = null, sortState = {key:'rank',dir:'asc'}, requestRunning = false;
+    const allCols = [
+      ['rank','排名',true],['name','ETF',true],['status','状态',true],['opportunity_score','机会分',true],['close','价格',true],['rps135','近期强度',true],['live','当前强度',true],['trend','趋势',true],['reason','理由/风险',true],
+      ['code','代码',false],['ts_code','Tushare代码',false],['full_name','基金登记全称',false],['fund_type','基金类型',false],['benchmark','跟踪指数',false],['management','基金公司',false],['pct_chg','当日涨跌%',false],['rps1','RPS1',false],['rps3','RPS3',false],['rps5','RPS5',false],['rps10','RPS10',false],['rps20','RPS20',false],['ret1','1日收益%',false],['ret3','3日收益%',false],['ret5','5日收益%',false],['ret10','10日收益%',false],['ret20','20日收益%',false],['ma5','MA5',false],['ma10','MA10',false],['ma20','MA20',false],['distance_ma20','距MA20%',false],['amount_yi','当日成交额亿',false],['adv20_yi','ADV20亿',false],['amount_ratio','量能比',false],['recent_score','近期强度分',false],['intraday_score','当前强度分',false],['trend_score','趋势分',false],['liquidity_score','流动性分',false],['quality_score','产品质量分',false],['overheat_penalty','过热扣分',false],['history_days','历史天数',false],['capacity_ratio','订单/ADV20',false],['eligibility','交易资格',false],['risk','风险',false]
+    ];
+    // 选ETF只比较产品自身的交易活跃度；不再展示或计算个人下单金额限制。
+    for (let i = allCols.length - 1; i >= 0; i -= 1) {
+      if (allCols[i][0] === 'capacity_ratio') allCols.splice(i, 1);
+    }
+    const etfNameColumnIndex = allCols.findIndex(column => column[0] === 'name');
+    if (etfNameColumnIndex >= 0 && !allCols.some(column => column[0] === 'trading_cycle')) {
+      allCols.splice(etfNameColumnIndex + 1, 0, ['trading_cycle','T+0/T+1',true], ['trading_cycle_basis','交易规则依据',false]);
+    }
+    let visible = new Set(allCols.filter(c=>c[2]).map(c=>c[0]));
+
+    function todayText(){ const n=new Date(); return `${n.getFullYear()}${String(n.getMonth()+1).padStart(2,'0')}${String(n.getDate()).padStart(2,'0')}`; }
+    function goStrategy(select){ const target=select.value; if(target && target!==location.pathname) location.href=target; }
+    function setStatus(text,bad=false){ const el=document.getElementById('status'); el.textContent=text; el.className=bad?'status bad':'status'; }
+    function loadLocal(){ try { settings={...DEFAULTS,...JSON.parse(localStorage.getItem(SETTINGS_KEY)||'{}')}; visible=new Set(JSON.parse(localStorage.getItem(COLUMNS_KEY)||'null')||[...visible]); } catch(_){} document.getElementById('endDate').value=todayText(); }
+    function escapeHtml(v){ return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+    function value(row,key){ if(key==='rps135') return `${row.rps1}/${row.rps3}/${row.rps5}`; if(key==='live') return `当前分${row.intraday_score}｜量能${row.amount_ratio||'-'}`; if(key==='trend') return `MA10 ${row.ma10}｜距MA20 ${row.distance_ma20}%`; if(key==='reason') return `${row.reason}；${row.risk}`; return row[key]??''; }
+    function cell(row,key){ const text=value(row,key); if(key==='status'){ const cls=text==='可买'?'state-buy':(text==='等待'||text==='观察'||text==='偏热等待'?'state-wait':'state-bad'); return `<span class="${cls}">${escapeHtml(text)}</span>`; } if(key==='opportunity_score') return `<span class="score">${escapeHtml(text)}</span>`; if(key==='name') return `<button class="mini-btn" title="${escapeHtml(row.full_name||row.name)}" onclick="diagnose('${escapeHtml(row.code)}')">${escapeHtml(row.name)}<br><small>${escapeHtml(row.code)}</small></button>`; if(key==='reason') return `<span class="reason" title="${escapeHtml(text)}">${escapeHtml(text)}</span>`; return escapeHtml(text); }
+    function renderSummary(){ const s=latest?.summary||{}; const items=[['数据状态',latest?.snapshot_state||'-'],['全市场ETF',s.total??0],['可买',s.buy??0],['等待',s.wait??0],['观察',s.watch??0]]; document.getElementById('summaryCards').innerHTML=items.map(i=>`<div class="metric"><span>${escapeHtml(i[0])}</span><strong>${escapeHtml(i[1])}</strong></div>`).join(''); }
+    function renderTable(){ const cols=allCols.filter(c=>visible.has(c[0])); const head=`<thead><tr>${cols.map(c=>`<th onclick="sortTable('${c[0]}')">${c[1]}${sortState.key===c[0]?(sortState.dir==='asc'?' ▲':' ▼'):''}</th>`).join('')}</tr></thead>`; const body=rows.length?`<tbody>${rows.map(r=>`<tr>${cols.map(c=>`<td>${cell(r,c[0])}</td>`).join('')}</tr>`).join('')}</tbody>`:`<tbody><tr><td colspan="${cols.length}">暂无ETF数据</td></tr></tbody>`; document.getElementById('resultTable').innerHTML=head+body; }
+    function compare(a,b){ const na=Number(a),nb=Number(b); return Number.isFinite(na)&&Number.isFinite(nb)?na-nb:String(a??'').localeCompare(String(b??''),'zh-Hans-CN'); }
+    function sortTable(key){ const dir=sortState.key===key&&sortState.dir==='asc'?'desc':'asc'; sortState={key,dir}; rows.sort((a,b)=>{const n=compare(value(a,key),value(b,key));return dir==='asc'?n:-n;}); renderTable(); }
+    async function runMarket(withProbe, automatic=false){ if(requestRunning) return; const source=getGlobalDataSourcePayload(); if(!source) return; const query=withProbe?document.getElementById('probeQuery').value.trim():''; if(withProbe&&!query){ setStatus('请输入ETF代码或名称。',true); return; } requestRunning=true; if(!automatic)setStatus('正在读取ETF基础信息、日线与实时行情...'); try { const payload={...source,...settings,end_date:document.getElementById('endDate').value||todayText(),etf_probe_query:query}; const res=await fetch('/api/etf_momentum',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); const data=await res.json(); if(!data.ok) throw new Error(data.error||'扫描失败'); latest=data; rows=data.rows||[]; sortState={key:'rank',dir:'asc'}; renderSummary(); renderTable(); renderDiagnosis(data.probe); document.getElementById('logBox').textContent=(data.logs||[]).join('\n'); const refreshHint=data.market_open?'，每30秒自动刷新':''; setStatus(`${data.snapshot_state}：${rows.length}只ETF，行情时间 ${data.snapshot_at}${refreshHint}`); } catch(err){ setStatus(`扫描失败：${err.message}`,true); } finally { requestRunning=false; } }
+    function diagnose(code){ document.getElementById('probeQuery').value=code; runMarket(true); }
+    function renderDiagnosis(probe){ const panel=document.getElementById('diagnosis'); if(!probe){panel.classList.remove('open');return;} panel.classList.add('open'); const items=[['结论',probe.status||'-'],['全市场排名',probe.rank||'-'],['机会分',probe.opportunity_score??'-'],['当前价格',probe.close??'-'],['理由',probe.reason||'-'],['风险/失效',probe.risk||'-']]; panel.innerHTML=`<h2 style="margin:0 0 10px">单ETF诊断：${escapeHtml(probe.name||probe.code||'')}</h2><div class="diagnosis-grid">${items.map(i=>`<div class="diag-item"><span>${i[0]}</span><strong>${escapeHtml(i[1])}</strong></div>`).join('')}</div>`; }
+    function openModal(id){
+      if(id==='settingsModal') {
+        renderSettings();
+      }
+      if(id==='columnsModal') renderColumns();
+      document.getElementById(id).classList.add('open');
+      document.body.classList.add('etf-modal-open');
+    }
+    function closeModal(id){
+      document.getElementById(id).classList.remove('open');
+      if(!document.querySelector('.modal.open')) document.body.classList.remove('etf-modal-open');
+    }
+    function closeOnBackdrop(e,id){ if(e.target===e.currentTarget) closeModal(id); }
+    function renderSettings(){ const fields=[['基础参数'],['etf_min_history_days','最少历史交易日','number','1'],['etf_top_n','可买排名上限','number','1'],['etf_score_threshold','可买总分','number','1'],['etf_expected_hold_days','预计持有天数','number','1'],['评分权重'],['etf_weight_recent','近期强度权重','number','1'],['etf_weight_intraday','当前强度权重','number','1'],['etf_weight_trend','趋势权重','number','1'],['etf_weight_liquidity','流动性权重','number','1'],['etf_weight_quality','产品质量权重','number','1'],['风险控制'],['etf_overheat_ret5','5日过热涨幅%','number','1'],['etf_overheat_ma20','距MA20过热%','number','1']]; document.getElementById('settingsForm').innerHTML=fields.map(f=>f.length===1?`<div class="setting-section">${f[0]}</div>`:`<div><label>${f[1]}</label><input data-setting="${f[0]}" type="${f[2]}" min="${f[3]}" step="any" value="${settings[f[0]]}"></div>`).join(''); }
+    function saveSettings(){ document.querySelectorAll('[data-setting]').forEach(el=>settings[el.dataset.setting]=Number(el.value)); localStorage.setItem(SETTINGS_KEY,JSON.stringify(settings)); closeModal('settingsModal'); setStatus('参数已应用；下次手动刷新生效。'); }
+    function restoreDefaults(){ settings={...DEFAULTS}; renderSettings(); }
+    function renderColumns(){ document.getElementById('columnForm').innerHTML=allCols.map(c=>`<label class="check"><input type="checkbox" data-column="${c[0]}" ${visible.has(c[0])?'checked':''}>${c[1]}</label>`).join(''); }
+    function saveColumns(){ visible=new Set([...document.querySelectorAll('[data-column]:checked')].map(el=>el.dataset.column)); localStorage.setItem(COLUMNS_KEY,JSON.stringify([...visible])); closeModal('columnsModal'); renderTable(); }
+    function restoreColumns(){ visible=new Set(allCols.filter(c=>c[2]).map(c=>c[0])); renderColumns(); }
+    async function copyTopCodes(){ const codes=rows.filter(r=>r.status==='可买').map(r=>r.code); if(!codes.length){setStatus('当前没有可买ETF。',true);return;} await navigator.clipboard.writeText(codes.join('\n')); setStatus(`已复制 ${codes.length} 个可买ETF代码。`); }
+    function downloadCsv(){ if(!rows.length){setStatus('暂无数据可导出。',true);return;} const cols=allCols; const csv=[cols.map(c=>c[1]).join(',')].concat(rows.map(r=>cols.map(c=>`"${String(value(r,c[0])).replaceAll('"','""')}"`).join(','))).join('\n'); const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}); const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`etf_market_${new Date().toISOString().slice(0,10)}.csv`;a.click();URL.revokeObjectURL(a.href); }
+    const selectedCodes = new Set();
+
+    function toggleSelected(code, checked){
+      if (checked) selectedCodes.add(code); else selectedCodes.delete(code);
+    }
+    function toggleSelectAll(checked){
+      rows.forEach(row => { if (checked) selectedCodes.add(row.code); else selectedCodes.delete(row.code); });
+      renderTable();
+    }
+    async function copySelectedEtfs(){
+      const picked = rows.filter(row => selectedCodes.has(row.code));
+      if (!picked.length) { setStatus('请先勾选需要复制的ETF。', true); return; }
+      await navigator.clipboard.writeText(picked.map(row => `${row.code}\t${row.name}`).join('\n'));
+      setStatus(`已复制 ${picked.length} 只ETF：代码 + 行情简称。`);
+    }
+
+    const renderTableBase = renderTable;
+    renderTable = function(){
+      const cols = allCols.filter(c => visible.has(c[0]));
+      const allSelected = rows.length > 0 && rows.every(row => selectedCodes.has(row.code));
+      const head = `<thead><tr><th class="select-cell" title="全选/取消全选"><input type="checkbox" ${allSelected ? 'checked' : ''} onchange="toggleSelectAll(this.checked)"></th>${cols.map(c => `<th onclick="sortTable('${c[0]}')">${c[1]}${sortState.key===c[0]?(sortState.dir==='asc'?' ▲':' ▼'):''}</th>`).join('')}</tr></thead>`;
+      const body = rows.length ? `<tbody>${rows.map(row => `<tr><td class="select-cell"><input type="checkbox" ${selectedCodes.has(row.code) ? 'checked' : ''} onchange="toggleSelected('${escapeHtml(row.code)}',this.checked)"></td>${cols.map(c => `<td>${cell(row,c[0])}</td>`).join('')}</tr>`).join('')}</tbody>` : `<tbody><tr><td colspan="${cols.length + 1}">暂无ETF数据</td></tr></tbody>`;
+      document.getElementById('resultTable').innerHTML = head + body;
+    };
+
+    function openScoreGuide(){ openModal('scoreModal'); }
+    function setupToolbar(){
+      const nameColumn = allCols.find(column => column[0] === 'name');
+      if (nameColumn) nameColumn[1] = 'ETF名称（代码为准）';
+      const copyButton = [...document.querySelectorAll('button')].find(button => button.getAttribute('onclick') === 'copyTopCodes()');
+      if (copyButton) {
+        copyButton.textContent = '复制已选ETF';
+        copyButton.setAttribute('onclick', 'copySelectedEtfs()');
+        const guideButton = document.createElement('button');
+        guideButton.className = 'ghost'; guideButton.textContent = '评分说明'; guideButton.onclick = openScoreGuide;
+        copyButton.insertAdjacentElement('afterend', guideButton);
+      }
+      const modal = document.createElement('div');
+      modal.id = 'scoreModal'; modal.className = 'modal';
+      modal.onclick = event => closeOnBackdrop(event, 'scoreModal');
+      modal.innerHTML = `<div class="modal-card"><div class="modal-head"><h2>评分与状态说明</h2><button class="ghost" onclick="closeModal('scoreModal')">关闭</button></div><div class="modal-body explain">
+        <h3>统一评分：满分100，先全市场排序</h3><p>只比较ETF自身的价格、趋势与成交活跃度；不读取成分股，也不按个人买入金额做限制。</p>
+        <ul><li><b>近期强度 35%</b>：全市场RPS，1/3/5/10/20日收益分别占30%/30%/25%/10%/5%。</li><li><b>当前强度 25%</b>：当日涨跌幅的全市场百分位；盘中使用可获得的实时快照，收盘后使用最终收盘值。</li><li><b>趋势 15%</b>：收盘价高于MA5、MA5≥MA10、MA10≥MA20，以及距20日高点的程度。</li><li><b>流动性 15%</b>：20日日均成交额全市场百分位（75%）+ 5日/20日量能比（25%）。</li><li><b>产品质量 10%</b>：当前固定为中性50分，不用缺失的费用、规模数据伪造差异，所以暂不改变ETF相对排名。</li></ul>
+        <h3>过热扣分</h3><p>5日涨幅超过15%，或高于MA20超过15%时开始扣分；最多扣25分。</p>
+        <h3>状态</h3><ul><li><b>可买</b>：历史不少于60日、总分≥80、全市场前3名、且价格在MA10之上。</li><li><b>等待</b>：总分≥72，但未同时满足“可买”全部条件。</li><li><b>偏热等待</b>：过热扣分≥12，等待回踩或再确认。</li><li><b>观察</b>：尚未进入等待区间。</li><li><b>数据不足</b>：有效历史少于60日。</li></ul>
+        <h3>名称</h3><p>展示的是行情源简称；同花顺可使用另一套简称。ETF的唯一标识是交易代码，勾选复制会同时复制“代码 + 名称”，请始终以代码核对。</p>
+      </div></div>`;
+      document.body.appendChild(modal);
+    }
+
+    document.getElementById('probeQuery').addEventListener('keydown',e=>{if(e.key==='Enter')runMarket(true)}); setupToolbar(); loadLocal();
+    runMarket(false);
+    setInterval(()=>{ if(latest?.market_open && document.getElementById('endDate').value===todayText()) runMarket(false,true); },30000);
+  </script>
+</body>
+</html>

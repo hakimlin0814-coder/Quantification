@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>强势股票×强势概念交集</title>
+  <style>
+    :root{--bg:#0d1117;--panel:#161b22;--panel2:#111820;--line:#30363d;--text:#e6edf3;--muted:#8b949e;--accent:#58a6ff;--good:#3fb950;--warn:#d29922;--bad:#f85149}
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:"Microsoft YaHei",Arial,sans-serif}
+    header{padding:14px 18px;background:#0d1117;border-bottom:1px solid var(--line)}
+    .topbar,.actions,.inline{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.topbar{justify-content:space-between;margin-bottom:10px}h1{margin:0;font-size:20px}
+    .strategy-nav{width:260px} label{display:block;margin:0 0 4px;color:var(--muted);font-size:12px}
+    input,select{width:100%;min-height:34px;padding:0 8px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text)}
+    button{min-height:34px;padding:0 12px;border:1px solid var(--line);border-radius:6px;background:#1f6feb;color:#fff;font-weight:700;cursor:pointer}button.secondary{background:#21262d;color:var(--text)}button.ghost{background:var(--panel2);color:var(--accent)}
+    .status{margin-top:8px;color:var(--muted);font-size:13px}.bad{color:var(--bad);font-weight:700}main{padding:16px 18px 70px}.controls,.panel{padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--panel)}
+    .controls-grid{display:grid;grid-template-columns:repeat(6,minmax(130px,1fr));gap:10px}.check{display:flex;align-items:center;gap:7px;min-height:34px;padding:0 8px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);font-size:13px}.check input{width:auto;min-height:auto}
+    .summary{display:grid;grid-template-columns:repeat(7,minmax(120px,1fr));gap:10px;margin:12px 0}.metric{min-height:70px;padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--panel)}.metric span{display:block;color:var(--muted);font-size:12px;margin-bottom:6px}.metric strong{font-size:17px}
+    .panel-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line)}.panel-head h2{margin:0;font-size:16px}.table-wrap{overflow:auto;max-height:calc(100vh - 350px)}table{width:100%;min-width:1320px;border-collapse:collapse}th,td{padding:8px 9px;border-bottom:1px solid var(--line);white-space:nowrap;text-align:center;font-size:13px}th{position:sticky;top:0;background:#1f2630;cursor:pointer}.good{color:var(--good);font-weight:700}.warn{color:var(--warn);font-weight:700}.risk{color:var(--bad);font-weight:700}.muted{color:var(--muted)}
+    .modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:18px;background:#0008;z-index:10}.modal.open{display:flex}.modal-card{width:min(980px,100%);max-height:90vh;overflow:auto;padding:16px;border:1px solid var(--line);border-radius:8px;background:var(--panel)}.columns{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:8px}.columns label{display:flex;gap:7px;align-items:center;padding:8px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text)}.columns input{width:auto;min-height:auto}
+    th.select-col,td.select-col{width:42px;cursor:default}td.select-col input,th.select-col input{width:16px;height:16px}.recommend-table{min-width:980px}
+    @media(max-width:1050px){.controls-grid{grid-template-columns:repeat(3,minmax(130px,1fr))}.summary{grid-template-columns:repeat(4,minmax(120px,1fr))}}
+    @media(max-width:650px){header,main{padding:10px}.controls-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.summary{grid-template-columns:repeat(2,minmax(0,1fr))}.columns{grid-template-columns:repeat(2,minmax(0,1fr))}h1{font-size:18px}.panel-head{align-items:flex-start;flex-direction:column}.panel-head h2{white-space:nowrap}.panel-head .muted{width:100%;white-space:normal;line-height:1.5}.table-wrap{max-height:none}}
+  </style>
+  <link rel="stylesheet" href="/app-layout.css" />
+</head>
+<body>
+  <header>
+    <div class="topbar">
+      <h1>强势股票 × 强势概念交集策略</h1>
+      <div class="actions">
+        <select class="strategy-nav" onchange="goStrategy(this)">
+          <option value="/strong-concept-momentum" selected>强势股票×强势概念</option>
+          <option value="/concept-radar">概念雷达</option>
+          <option value="/">大盘总览</option>
+        </select>
+        <button class="ghost" type="button" onclick="openColumns()">可见列</button>
+      </div>
+    </div>
+    <div class="status" id="status">等待运行</div>
+  </header>
+  <main>
+    <section class="controls">
+      <div class="controls-grid">
+        <div><label>交易日期</label><input id="endDate" type="text" placeholder="YYYYMMDD" /></div>
+        <div><label>股票涨幅周期（工作日）</label><input id="stockDays" type="number" min="1" step="1" value="2" /></div>
+        <div><label>股票排名模式</label><select id="stockRankMode" onchange="updateRankValueControl()"><option value="percentile" selected>前百分比</option><option value="count">前N名</option></select></div>
+        <div><label id="stockTopValueLabel">股票前百分比</label><input id="stockTopValue" type="number" min="0.1" max="100" step="0.5" value="10" /></div>
+        <div><label>概念涨幅周期（工作日）</label><input id="conceptDays" type="number" min="1" step="1" value="2" /></div>
+        <div><label>概念前N名</label><input id="conceptTopCount" type="number" min="1" step="1" value="10" /></div>
+        <div><label>成员股最大读取数</label><input id="memberLimit" type="number" min="120" step="20" value="1000" /></div>
+        <div><label>运行模式</label><select id="reviewMode"><option value="after_close">收盘复盘</option><option value="intraday" selected>盘中实时</option></select></div>
+        <div><label>推荐候选数量</label><input id="recommendCount" type="number" min="1" step="1" value="10" /></div>
+        <div><label>行业级别</label><select id="industryRankLevel"><option value="sw_l3" selected>申万三级</option><option value="sw_l2">申万二级</option><option value="sw_l1">申万一级</option></select></div>
+        <label class="check"><input id="industryMvRankEnabled" type="checkbox" />行业市值前N</label>
+        <div><label>行业市值排名前N</label><input id="industryMvRankTop" type="number" min="1" step="1" value="2" /></div>
+        <label class="check"><input id="excludeSt" type="checkbox" checked />不允许ST（勾选排除）</label>
+        <label class="check"><input id="excludeStar" type="checkbox" checked />不允许科创板（勾选排除）</label>
+        <label class="check"><input id="excludeChinext" type="checkbox" checked />不允许创业板（勾选排除）</label>
+        <label class="check"><input id="excludeBj" type="checkbox" checked />不允许北交所（勾选排除）</label>
+      </div>
+      <div class="actions" style="margin-top:10px"><button id="runButton" type="button" onclick="runStrategy()">运行筛选</button><button class="secondary" type="button" onclick="loadDefaults()">恢复默认</button><button class="ghost" type="button" onclick="exportCsv()">导出CSV</button></div>
+      <div class="actions refresh-bar" style="margin-top:10px"><label class="check"><input id="autoRefreshEnabled" type="checkbox" onchange="toggleAutoRefresh(this.checked)" />启用后台实时刷新</label><div class="refresh-interval"><label>刷新间隔（秒）</label><input id="autoRefreshInterval" type="number" min="30" step="1" value="60" onchange="updateRefreshInterval()" /></div><span class="muted" id="refreshState">未启用；运行筛选时强制获取最新数据</span></div>
+    </section>
+    <section class="summary" id="summary"></section>
+    <section class="panel">
+      <div class="panel-head"><h2>最终交集候选</h2><span class="muted" id="resultHint">个股前P% ∩ 概念前N名</span></div>
+      <div class="table-wrap"><table id="resultTable"><thead></thead><tbody><tr><td>请先运行策略</td></tr></tbody></table></div>
+    </section>
+    <section class="panel" id="selectionActions" style="margin-top:12px">
+      <div class="actions"><button class="ghost" type="button" onclick="toggleAllRows(true)">全选候选</button><button class="secondary" type="button" onclick="toggleAllRows(false)">取消全选</button><button class="ghost" type="button" onclick="copySelectedCodes()">复制选中代码</button><button class="secondary" type="button" onclick="clearSelections()">清空候选选择</button><button class="secondary" type="button" onclick="recommendCandidates()">推荐候选</button><span class="muted" id="selectionHint">已选 0 只</span></div>
+    </section>
+    <section class="panel" id="recommendationPanel" style="display:none;margin-top:12px">
+      <div class="panel-head"><h2>推荐候选</h2><span class="muted" id="recommendationHint">推荐结果也需要重新勾选，勾选后可复制代码</span></div>
+      <div class="table-wrap"><table class="recommend-table" id="recommendationTable"><thead></thead><tbody></tbody></table></div>
+      <div class="actions" style="padding:10px 12px"><button class="ghost" type="button" onclick="toggleAllRecommended(true)">全选推荐</button><button class="secondary" type="button" onclick="toggleAllRecommended(false)">取消全选</button><button class="ghost" type="button" onclick="copyRecommendedCodes()">复制选中的推荐代码</button><span class="muted" id="recommendationSelectionHint">已选推荐 0 只</span></div>
+    </section>
+    <details class="panel" style="margin-top:12px"><summary>候选规则说明</summary><div class="muted" style="padding:12px;line-height:1.8">候选集合 = 个股排名集合 ∩ 强势概念前N名的全部成分股；勾选行业市值前N后，再过滤每只股票在所属申万行业级别内总市值排名前N的股票。个股排名在有效股票池内计算，概念按输入的工作日涨幅排序；ST、科创板、创业板、北交所均由对应复选框控制，勾选即排除。推荐只在你勾选的候选中按个股强度、概念排名、命中概念数、当日表现、量能和风险综合排序，不代表自动买入。</div></details>
+  </main>
+  <div class="modal" id="columnModal" onclick="if(event.target===this)closeColumns()"><div class="modal-card"><div class="topbar"><h2>结果列可见配置</h2><button class="secondary" type="button" onclick="closeColumns()">关闭</button></div><div class="columns" id="columnOptions"></div><div class="actions" style="margin-top:12px"><button class="secondary" type="button" onclick="selectAllColumns(true)">全选</button><button class="secondary" type="button" onclick="selectAllColumns(false)">清空</button><button type="button" onclick="saveColumns()">保存</button></div></div></div>
+  <script src="/global-settings.js"></script>
+  <script src="/app_layout.js"></script>
+  <script>
+    const COLUMN_DEFS = [
+      ["ts_code","代码"],["name","名称"],["stock_type","市场"],["concept_name","强势概念"],["rank_industry","申万行业"],
+      ["stock_rank","个股排名"],["stock_rank_pct","个股强度%"],["stock_return","个股区间%"],["concept_rank","概念排名"],["concept_return","概念区间%"],
+      ["industry_mv_rank","行业内市值排名"],["market_cap_yi","总市值亿"],["close","最新价"],["pct_chg","当日%"],["amount_yi","成交额亿"],["amount_ratio","量能比"],["distance_ma20","距MA20%"],["risk_flags","风险"],
+      ["strong_concept_count","命中概念数"],["snapshot_state","数据状态"]
+    ];
+    const DEFAULT_COLUMNS = ["ts_code","name","stock_type","concept_name","rank_industry","stock_rank","stock_rank_pct","stock_return","concept_rank","concept_return","industry_mv_rank","market_cap_yi","close","pct_chg","amount_yi","risk_flags"];
+    let rows = [];
+    let sortKey = "stock_rank";
+    let sortDir = "asc";
+    let columns = loadColumns();
+    let selectedCodes = new Set();
+    let recommendedCodes = new Set();
+    let recommendedRows = [];
+    const STRATEGY_CONTROL_IDS = ["endDate","stockDays","stockRankMode","stockTopValue","conceptDays","conceptTopCount","memberLimit","reviewMode","recommendCount","industryRankLevel","industryMvRankEnabled","industryMvRankTop","excludeSt","excludeStar","excludeChinext","excludeBj","autoRefreshInterval"];
+    let autoRefreshTimer = null;
+    let autoRefreshInFlight = false;
+    let activeRequestController = null;
+    function goStrategy(select){ if(select.value) location.href = select.value; }
+    function val(id){return document.getElementById(id)?.value ?? ""}
+    function num(id, fallback){const n=Number(val(id));return Number.isFinite(n)?n:fallback}
+    function checked(id){return Boolean(document.getElementById(id)?.checked)}
+    function todayText(){const now=new Date();return `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,"0")}${String(now.getDate()).padStart(2,"0")}`}
+    function loadColumns(){try{const x=JSON.parse(localStorage.getItem("strongConceptColumns:v1")||"null");return Array.isArray(x)&&x.length?x:DEFAULT_COLUMNS.slice()}catch(_){return DEFAULT_COLUMNS.slice()}}
+    function openColumns(){document.getElementById("columnModal").classList.add("open");document.getElementById("columnOptions").innerHTML=COLUMN_DEFS.map(([k,l])=>`<label><input type="checkbox" data-col="${k}" ${columns.includes(k)?"checked":""}/> ${l}</label>`).join("")}
+    function closeColumns(){document.getElementById("columnModal").classList.remove("open")}
+    function selectAllColumns(on){document.querySelectorAll("#columnOptions input").forEach(x=>x.checked=on)}
+    function saveColumns(){columns=[...document.querySelectorAll("#columnOptions input:checked")].map(x=>x.dataset.col);if(!columns.length)columns=DEFAULT_COLUMNS.slice();localStorage.setItem("strongConceptColumns:v1",JSON.stringify(columns));closeColumns();render()}
+    function loadDefaults(){if(checked("autoRefreshEnabled"))return alert("请先停止实时刷新，再恢复默认");localStorage.removeItem("strongConceptParams:v4");localStorage.removeItem("strongConceptParams:v3");location.reload()}
+    function updateRankValueControl(){const mode=val("stockRankMode")==="count";const label=document.getElementById("stockTopValueLabel");const input=document.getElementById("stockTopValue");if(label)label.textContent=mode?"股票前N名":"股票前百分比";if(input){input.min=mode?"1":"0.1";input.max=mode?"":"100";input.step=mode?"1":"0.5"}}
+    function params(){
+      const markets=["main_board"];if(!checked("excludeStar"))markets.push("star");if(!checked("excludeChinext"))markets.push("chinext");if(!checked("excludeBj"))markets.push("bj");
+      return { ...getGlobalDataSourcePayload(), end_date:val("endDate"), review_mode:val("reviewMode"), lookback_days:92,
+        strong_concept_stock_days:num("stockDays",2), strong_concept_concept_days:num("conceptDays",2), strong_concept_stock_rank_mode:val("stockRankMode"),
+        strong_concept_stock_top_percent:num("stockTopValue",10), strong_concept_stock_top_count:Math.max(1,Math.floor(num("stockTopValue",100))), strong_concept_top_count:num("conceptTopCount",10),
+        strong_concept_market_scope:markets.length?markets:["main_board"], strong_concept_exclude_st:checked("excludeSt"), strong_concept_exclude_star:checked("excludeStar"),
+        strong_concept_exclude_chinext:checked("excludeChinext"), strong_concept_exclude_bj:checked("excludeBj"), strong_concept_member_limit:num("memberLimit",1000), strong_concept_recommend_count:num("recommendCount",20),
+        strong_concept_industry_mv_enabled:checked("industryMvRankEnabled"), strong_concept_industry_mv_rank_top:Math.max(1,Math.floor(num("industryMvRankTop",2))), strong_concept_industry_rank_level:val("industryRankLevel")||"sw_l3"
+      };
+    }
+    function saveParams(){const p={endDate:val("endDate"),stockDays:val("stockDays"),stockRankMode:val("stockRankMode"),stockTopValue:val("stockTopValue"),conceptDays:val("conceptDays"),conceptTopCount:val("conceptTopCount"),memberLimit:val("memberLimit"),reviewMode:val("reviewMode"),recommendCount:val("recommendCount"),industryRankLevel:val("industryRankLevel")||"sw_l3",industryMvRankEnabled:checked("industryMvRankEnabled"),industryMvRankTop:val("industryMvRankTop"),excludeSt:checked("excludeSt"),excludeStar:checked("excludeStar"),excludeChinext:checked("excludeChinext"),excludeBj:checked("excludeBj"),autoRefreshInterval:normalizeRefreshInterval()};localStorage.setItem("strongConceptParams:v4",JSON.stringify(p))}
+    function restoreParams(){try{const p=JSON.parse(localStorage.getItem("strongConceptParams:v4")||localStorage.getItem("strongConceptParams:v3")||"{}");if(p.stockTopValue==null)p.stockTopValue=p.stockRankMode==="count"?(p.stockTopCount||100):(p.stockTopPercent||10);if(!p.industryRankLevel)p.industryRankLevel="sw_l3";if(p.autoRefreshInterval==null)p.autoRefreshInterval=60;Object.entries(p).forEach(([k,v])=>{const el=document.getElementById(k);if(!el||k==="autoRefreshEnabled")return;if(el.type==="checkbox")el.checked=Boolean(v);else el.value=v})}catch(_){}document.getElementById("endDate").value=document.getElementById("endDate").value||new Date().toLocaleDateString("zh-CN",{year:"numeric",month:"2-digit",day:"2-digit"}).replaceAll("/","");updateRankValueControl();updateRefreshInterval()}
+    function setStatus(text,bad=false){const el=document.getElementById("status");el.textContent=text;el.className=bad?"status bad":"status"}
+    function normalizeRefreshInterval(){const n=Math.floor(Number(val("autoRefreshInterval")));return Number.isFinite(n)&&n>=30?n:60}
+    function setControlsLocked(locked){STRATEGY_CONTROL_IDS.forEach(id=>{const el=document.getElementById(id);if(el)el.disabled=locked});const run=document.getElementById("runButton");if(run)run.disabled=locked}
+    function setRefreshState(text){const el=document.getElementById("refreshState");if(el)el.textContent=text}
+    function toggleAutoRefresh(enabled){if(enabled){startAutoRefresh()}else{stopAutoRefresh()}}
+    function startAutoRefresh(){const interval=normalizeRefreshInterval();document.getElementById("autoRefreshInterval").value=interval;saveParams();setControlsLocked(true);setRefreshState(`正在启动实时刷新；刷新间隔${interval}秒；条件已锁定`);runStrategy({auto:true})}
+    function updateRefreshInterval(){const interval=normalizeRefreshInterval();const el=document.getElementById("autoRefreshInterval");if(el)el.value=interval;if(checked("autoRefreshEnabled"))setRefreshState(`实时刷新已开启；间隔${interval}秒；条件已锁定`)}
+    function stopRefreshTimer(){if(autoRefreshTimer){clearTimeout(autoRefreshTimer);autoRefreshTimer=null}}
+    function stopAutoRefresh(){stopRefreshTimer();if(activeRequestController)activeRequestController.abort();autoRefreshInFlight=false;setControlsLocked(false);setRefreshState("实时刷新已停止；可以修改条件并手动运行");setStatus("实时刷新已停止，当前结果保留为上一次结果")}
+    function scheduleNextSessionRefresh(){stopRefreshTimer();if(!checked("autoRefreshEnabled"))return;const now=new Date();const next=new Date(now);if(now.getDay()>=1&&now.getDay()<=5&&now.getHours()<9.5){next.setHours(9,30,0,0)}else{next.setDate(next.getDate()+1);next.setHours(9,30,0,0)}while(next.getDay()===0||next.getDay()===6)next.setDate(next.getDate()+1);const delay=Math.max(1000,next.getTime()-now.getTime());autoRefreshTimer=setTimeout(()=>runStrategy({auto:true}),delay);setRefreshState(`当前为收盘或休市时间，仅保留最后交易日数据；下个工作日09:30自动恢复；条件已锁定`)}
+    function scheduleAutoRefresh(mode){stopRefreshTimer();if(!checked("autoRefreshEnabled"))return;const interval=normalizeRefreshInterval()*1000;if(mode==="live"){autoRefreshTimer=setTimeout(()=>runStrategy({auto:true}),interval);setRefreshState(`实时刷新中；${normalizeRefreshInterval()}秒后更新；条件已锁定`);return}if(mode==="lunch"){const now=new Date();const next=new Date(now);next.setHours(13,0,0,0);const delay=Math.max(1000,next.getTime()-now.getTime());autoRefreshTimer=setTimeout(()=>runStrategy({auto:true}),delay);setRefreshState("已获取11:30午间数据；13:00恢复实时刷新；条件已锁定");return}scheduleNextSessionRefresh()}
+    function scheduleAutoRetry(){if(!checked("autoRefreshEnabled"))return;stopRefreshTimer();autoRefreshTimer=setTimeout(()=>runStrategy({auto:true}),normalizeRefreshInterval()*1000);setRefreshState(`本次刷新失败；${normalizeRefreshInterval()}秒后重试；条件已锁定`)}
+    async function runStrategy(options={}){const isAuto=Boolean(options.auto);if(!isAuto&&checked("autoRefreshEnabled")){setStatus("请先停止实时刷新，再手动运行",true);return false}if(isAuto){const end=document.getElementById("endDate");if(end)end.value=todayText()}const source=getGlobalDataSourcePayload();if(!source)return false;if(isAuto&&autoRefreshInFlight)return false;clearSelections();recommendedRows=[];document.getElementById("recommendationPanel").style.display="none";saveParams();if(isAuto)autoRefreshInFlight=true;const controller=new AbortController();activeRequestController=controller;setStatus(isAuto?"后台正在获取最新行情并重新计算候选...":"正在获取最新行情、概念和实时数据...");try{const res=await fetch("/api/strong_concept_momentum",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(params()),signal:controller.signal});const data=await res.json();if(!data.ok)throw new Error(data.error||"筛选失败");rows=data.stocks||[];document.getElementById("resultHint").textContent=`${data.market?.stock_rank_label||"个股排名"} ∩ 概念前${data.market?.concept_top_count||10}名${data.market?.industry_mv_rank_enabled?` ∩ ${data.market.industry_rank_level_label||"行业"}市值前${data.market.industry_mv_rank_top}名`:""}`;renderSummary(data.market||{});render();setStatus(`完成：${rows.length}只候选；${data.market?.snapshot_state||"数据已更新"}；${data.market?.snapshot_at||""}`);if(isAuto)scheduleAutoRefresh(data.market?.snapshot_mode||"");return true}catch(e){if(e.name!=="AbortError"){setStatus(`运行失败：${e.message}`,true);if(isAuto)scheduleAutoRetry()}return false}finally{if(activeRequestController===controller)activeRequestController=null;if(isAuto)autoRefreshInFlight=false}}
+    function renderSummary(m){const items=[["交易日",m.trade_date||""],["数据状态",m.snapshot_state||""],["股票有效数",m.stock_universe_count??""],["个股阈值",m.stock_rank_label||""],["强势概念",`${m.concept_top_count??10}名`],["行业级别",m.industry_rank_level_label||"申万三级"],["行业市值",m.industry_mv_rank_enabled?`前${m.industry_mv_rank_top}名`:"未启用"],["最终候选",rows.length],["行情来源",m.realtime_source||"日线收盘"]];document.getElementById("summary").innerHTML=items.map(([k,v])=>`<div class="metric"><span>${k}</span><strong>${escapeHtml(v)}</strong></div>`).join("")}
+    function columnLabel(k){const item=COLUMN_DEFS.find(x=>x[0]===k);return item?item[1]:k}
+    function codeOf(r){return String(r.ts_code||r.code||"")}
+    function toggleRow(code,on){if(on)selectedCodes.add(code);else selectedCodes.delete(code);updateSelectionHint()}
+    function toggleAllRows(on){rows.forEach(r=>{const code=codeOf(r);if(on)selectedCodes.add(code);else selectedCodes.delete(code)});render()}
+    function updateSelectionHint(){const el=document.getElementById("selectionHint");if(el)el.textContent=`已选 ${selectedCodes.size} 只`}
+    function selectedRows(){return rows.filter(r=>selectedCodes.has(codeOf(r)))}
+    async function copySelectedCodes(){const source=selectedRows();if(!source.length)return alert("请先勾选股票");const text=source.map(codeOf).join("\n");try{await navigator.clipboard.writeText(text);setStatus(`已复制 ${source.length} 个股票代码`)}catch(_){window.prompt("复制以下股票代码",text)}}
+    function recommendationScore(r){const stock=Number(r.stock_rank_pct)||0;const conceptRank=Number(r.concept_rank)||999;const concept=Math.max(0,100-Math.min(100,conceptRank*5));const multi=Math.min(5,Number(r.strong_concept_count)||0)*5;const day=Math.max(-20,Math.min(20,Number(r.pct_chg)||0))*0.5;const volume=Math.max(0,Math.min(10,(Number(r.amount_ratio)||0)-1))*1.5;const risk=r.risk_flags&&r.risk_flags!=="正常"?-12:0;return stock*0.5+concept*0.25+multi+day+volume+risk}
+    function clearSelections(){selectedCodes.clear();recommendedCodes.clear();updateSelectionHint();const r=document.getElementById("recommendationSelectionHint");if(r)r.textContent="已选推荐 0 只";render();if(recommendedRows.length)renderRecommendations()}
+    function toggleRecommended(code,on){if(on)recommendedCodes.add(code);else recommendedCodes.delete(code);updateRecommendedSelection()}
+    function toggleAllRecommended(on){recommendedRows.forEach(r=>{const code=codeOf(r);if(on)recommendedCodes.add(code);else recommendedCodes.delete(code)});updateRecommendedSelection();renderRecommendations()}
+    function updateRecommendedSelection(){const el=document.getElementById("recommendationSelectionHint");if(el)el.textContent=`已选推荐 ${recommendedCodes.size} 只`;const checkbox=document.querySelector("#recommendationTable thead input");if(checkbox)checkbox.checked=recommendedRows.length>0&&recommendedRows.every(r=>recommendedCodes.has(codeOf(r)))}
+    async function copyRecommendedCodes(){if(!recommendedCodes.size)return alert("请先勾选推荐股票");const text=[...recommendedCodes].join("\n");try{await navigator.clipboard.writeText(text);setStatus(`已复制 ${recommendedCodes.size} 个推荐股票代码`)}catch(_){window.prompt("复制以下推荐股票代码",text)}}
+    function recommendationReason(r){const parts=[];parts.push(`个股强度排名第${Number(r.stock_rank||0).toFixed(0)}`);parts.push(`个股区间涨幅${Number(r.stock_return||0).toFixed(2)}%`);parts.push(`概念排名第${Number(r.concept_rank||0).toFixed(0)}`);parts.push(`命中${Number(r.strong_concept_count||0).toFixed(0)}个强势概念`);if(Number(r.amount_ratio)>1)parts.push(`量能比${Number(r.amount_ratio).toFixed(2)}`);if(r.risk_flags&&r.risk_flags!=="正常")parts.push(`风险提示：${r.risk_flags}`);else parts.push("未见当前风险字段");return parts.join("；")}
+    function recommendCandidates(){const selected=selectedRows();const requestedCount=Math.max(1,Math.floor(num("recommendCount",10)));if(!selected.length)return alert("请先在最终交集候选中勾选股票，再点击推荐候选");recommendedRows=selected.map(r=>({...r,recommend_score:recommendationScore(r),recommend_reason:recommendationReason(r)})).sort((a,b)=>b.recommend_score-a.recommend_score||Number(a.stock_rank||999)-Number(b.stock_rank||999)).slice(0,requestedCount);recommendedCodes=new Set();document.getElementById("recommendationHint").textContent=`已从你勾选的 ${selected.length} 只候选中推荐 ${recommendedRows.length} 只（设置数量：${requestedCount}）；推荐结果需再次勾选`;renderRecommendations();document.getElementById("recommendationPanel").style.display="block";document.getElementById("recommendationPanel").scrollIntoView({behavior:"smooth",block:"start"})}
+    function renderRecommendations(){document.querySelector("#recommendationTable thead").innerHTML='<tr><th class="select-col"><input type="checkbox" onchange="toggleAllRecommended(this.checked)" /></th><th>序号</th><th>代码</th><th>名称</th><th>强势概念</th><th>推荐分</th><th>个股区间%</th><th>概念区间%</th><th>命中概念数</th><th>推荐理由</th></tr>';document.querySelector("#recommendationTable tbody").innerHTML=recommendedRows.map((r,i)=>{const code=codeOf(r);return `<tr><td class="select-col"><input type="checkbox" ${recommendedCodes.has(code)?"checked":""} onchange="toggleRecommended('${code}',this.checked)" /></td><td>${i+1}</td><td>${escapeHtml(code)}</td><td>${escapeHtml(r.name)}</td><td>${escapeHtml(r.concept_name)}</td><td>${r.recommend_score.toFixed(2)}</td><td>${Number(r.stock_return||0).toFixed(2)}</td><td>${Number(r.concept_return||0).toFixed(2)}</td><td>${Number(r.strong_concept_count||0).toFixed(0)}</td><td style="white-space:normal;text-align:left">${escapeHtml(r.recommend_reason)}</td></tr>`}).join("");updateRecommendedSelection()}
+    function render(){const head=document.querySelector("#resultTable thead"),body=document.querySelector("#resultTable tbody");const ordered=[...rows].sort((a,b)=>compare(a[sortKey],b[sortKey],sortDir));const validCodes=new Set(rows.map(codeOf));selectedCodes=new Set([...selectedCodes].filter(x=>validCodes.has(x)));const allSelected=ordered.length>0&&ordered.every(r=>selectedCodes.has(codeOf(r)));head.innerHTML=`<tr><th class="select-col"><input type="checkbox" ${allSelected?"checked":""} onchange="toggleAllRows(this.checked)" /></th>${columns.map(k=>`<th onclick="sortBy('${k}')">${columnLabel(k)}${sortKey===k?(sortDir==="asc"?" ↑":" ↓"):""}</th>`).join("")}</tr>`;body.innerHTML=ordered.length?ordered.map(row=>{const code=codeOf(row);return `<tr><td class="select-col"><input type="checkbox" data-code="${escapeHtml(code)}" ${selectedCodes.has(code)?"checked":""} onchange="toggleRow('${code}',this.checked)" /></td>${columns.map(k=>`<td>${cell(row,k)}</td>`).join("")}</tr>`}).join(""): `<tr><td colspan="${columns.length+1}">当前条件下没有交集候选</td></tr>`;updateSelectionHint()}
+    function sortBy(k){sortDir=sortKey===k&&sortDir==="asc"?"desc":"asc";sortKey=k;render()}
+    function compare(a,b,d){const na=Number(a),nb=Number(b);const x=Number.isFinite(na)&&Number.isFinite(nb)?na-nb:String(a??"").localeCompare(String(b??""),"zh-CN");return d==="asc"?x:-x}
+    function cell(r,k){const v=r[k]??"";if(["stock_return","concept_return","pct_chg","stock_rank_pct","distance_ma20"].includes(k)){const n=Number(v);return `<span class="${n>=0?"good":"risk"}">${Number.isFinite(n)?n.toFixed(2):escapeHtml(v)}</span>`}if(k==="risk_flags"&&v&&v!=="正常")return `<span class="warn">${escapeHtml(v)}</span>`;if(["stock_rank","concept_rank","strong_concept_count","industry_mv_rank"].includes(k))return Number(v||0).toFixed(0);if(["close","amount_yi","amount_ratio","market_cap_yi"].includes(k)){const n=Number(v);return Number.isFinite(n)?n.toFixed(2):escapeHtml(v)}return escapeHtml(v)}
+    function escapeHtml(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]))}
+    function exportCsv(){if(!rows.length)return alert("暂无数据");const csv=[columns.map(k=>columnLabel(k)).join(",")].concat(rows.map(r=>columns.map(k=>`"${String(r[k]??"").replaceAll('"','""')}"`).join(","))).join("\n");const a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}));a.download=`strong_concept_momentum_${new Date().toISOString().slice(0,10)}.csv`;a.click()}
+    restoreParams();
+  </script>
+</body>
+</html>

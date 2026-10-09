@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>第一波启动策略</title>
+  <style>
+    :root { --bg:#f6f7f9; --panel:#fff; --text:#172033; --muted:#657084; --line:#dfe3ea; --accent:#1769e0; --good:#087f5b; --warn:#b7791f; --bad:#c92a2a; --ink:#101828; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:"Microsoft YaHei", Arial, sans-serif; color:var(--text); background:var(--bg); }
+    header { background:var(--panel); border-bottom:1px solid var(--line); padding:14px 18px; }
+    .topbar { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; }
+    h1 { margin:0; font-size:20px; line-height:1.25; }
+    .header-actions { display:flex; align-items:center; gap:8px; }
+    .strategy-nav { width:190px; }
+    .controls { display:grid; grid-template-columns:repeat(6, minmax(120px, 1fr)); gap:10px; align-items:end; }
+    label { display:block; font-size:12px; color:var(--muted); margin-bottom:4px; }
+    input, select { width:100%; height:34px; border:1px solid var(--line); border-radius:6px; padding:0 8px; background:#fff; color:var(--text); }
+    .check { height:34px; display:flex; align-items:center; gap:8px; border:1px solid var(--line); border-radius:6px; padding:0 8px; background:#fff; color:var(--text); font-size:13px; }
+    .check input { width:auto; height:auto; }
+    button { height:34px; border:0; border-radius:6px; background:var(--accent); color:#fff; font-weight:700; cursor:pointer; padding:0 14px; }
+    button.secondary { background:#354052; }
+    button.ghost { background:#fff; color:var(--accent); border:1px solid var(--accent); }
+    button.mini-btn { height:26px; padding:0 8px; font-size:12px; border-radius:5px; background:#eef4ff; color:var(--accent); border:1px solid #b8cff8; }
+    .icon-btn { width:34px; padding:0; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--line); background:#fff; color:var(--text); font-weight:800; }
+    main { padding:14px 18px 28px; }
+    .status { color:var(--muted); margin:8px 0 12px; }
+    .bad { color:var(--bad); font-weight:700; }
+    .positive { color:var(--good); font-weight:800; }
+    .warn { color:var(--warn); font-weight:800; }
+    .cards { display:grid; grid-template-columns:repeat(6, minmax(130px, 1fr)); gap:10px; margin:0 0 12px; }
+    .metric { background:#fff; border:1px solid var(--line); border-radius:8px; padding:12px; min-height:78px; }
+    .metric span { display:block; color:var(--muted); font-size:12px; margin-bottom:6px; }
+    .metric strong { display:block; font-size:18px; line-height:1.3; overflow-wrap:anywhere; }
+    .metric.wide { grid-column:span 3; }
+    .metric.wide strong { font-size:14px; line-height:1.55; font-weight:700; }
+    .toolbar { display:flex; gap:8px; flex-wrap:wrap; margin:0 0 12px; }
+    .table-wrap { background:#fff; border:1px solid var(--line); border-radius:8px; overflow:auto; max-height:calc(100vh - 280px); position:relative; }
+    table { width:100%; border-collapse:collapse; min-width:2380px; }
+    th, td { padding:9px 10px; border-bottom:1px solid var(--line); text-align:center; font-size:13px; white-space:nowrap; }
+    th { position:sticky; top:0; background:#f0f3f7; cursor:pointer; user-select:none; z-index:3; }
+    .freeze-code-name th:nth-child(1), .freeze-code-name td:nth-child(1) { position:sticky; left:0; z-index:2; min-width:88px; width:88px; max-width:88px; overflow:hidden; text-overflow:ellipsis; background:#fff; box-shadow:1px 0 0 var(--line); }
+    .freeze-code-name th:nth-child(2), .freeze-code-name td:nth-child(2) { position:sticky; left:88px; z-index:2; min-width:126px; width:126px; max-width:126px; overflow:hidden; text-overflow:ellipsis; background:#fff; box-shadow:1px 0 0 var(--line); }
+    .freeze-code-name th:nth-child(1), .freeze-code-name th:nth-child(2) { top:0; z-index:5; background:#f0f3f7; }
+    .code-cell { color:var(--accent); font-weight:800; cursor:pointer; }
+    .setup-launch { color:var(--good); font-weight:800; }
+    .setup-pullback { color:var(--warn); font-weight:800; }
+    .log { margin-top:12px; background:var(--ink); color:#d7e2f1; border-radius:8px; padding:12px; height:180px; overflow:auto; white-space:pre-wrap; }
+    .modal { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(16,24,40,.45); padding:18px; z-index:10; }
+    .modal.open { display:flex; }
+    .modal-card { width:min(820px, 100%); max-height:88vh; overflow:auto; background:#fff; border-radius:8px; box-shadow:0 18px 60px rgba(16,24,40,.24); border:1px solid var(--line); }
+    .modal-head { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 16px; border-bottom:1px solid var(--line); }
+    .modal-head h2 { margin:0; font-size:16px; }
+    .modal-body { padding:14px 16px 16px; color:#2d3748; line-height:1.65; }
+    .modal-body h3 { margin:14px 0 6px; font-size:15px; color:var(--text); }
+    .modal-body ul { margin:6px 0 0; padding-left:20px; }
+    @media (max-width:900px) {
+      .topbar { align-items:flex-start; flex-direction:column; }
+      .header-actions { width:100%; }
+      .strategy-nav { flex:1; width:auto; }
+      .controls { grid-template-columns:repeat(2, minmax(130px, 1fr)); }
+      .cards { grid-template-columns:repeat(2, minmax(130px, 1fr)); }
+      .metric.wide { grid-column:span 2; }
+      h1 { font-size:18px; }
+    }
+  </style>
+  <link rel="stylesheet" href="/app-layout.css" />
+</head>
+<body>
+  <header>
+    <div class="topbar">
+      <h1>第一波启动策略</h1>
+      <div class="header-actions">
+        <select id="strategyNav" class="strategy-nav" onchange="goStrategy(this)" aria-label="策略切换">
+          <option value="/">大盘总览</option>
+          <option value="/mainline-review">主线复盘策略</option>
+          <option value="/concept-radar">同花顺概念雷达</option>
+          <option value="/first-limit">涨停板策略</option>
+          <option value="/first-wave" selected>第一波启动策略</option>
+          <option value="/canslim-tao">CANSLIM+RPS策略</option>
+          <option value="/value-fcf">低估值现金流策略</option>
+          <option value="/dividend-low-vol">红利低波防守策略</option>
+          <option value="/stock-search">股票模糊搜索</option>
+          <option value="/realtime-ma">批量实时MA检查</option>
+        </select>
+        <button class="icon-btn" onclick="openHelp()" title="查看说明" aria-label="查看说明">?</button>
+      </div>
+    </div>
+    <div class="controls">
+      <div><label>复盘模式</label><select id="reviewMode"><option value="after_close">盘后复盘</option><option value="intraday">盘中试探</option></select></div>
+      <div><label>日期 YYYYMMDD</label><input id="endDate" /></div>
+      <div><label>买点模式</label><select id="entryMode"><option value="both" selected>启动+回踩</option><option value="launch">只看启动日</option><option value="pullback">只看回踩确认</option></select></div>
+      <div><label>股票范围</label><select id="stockScope"><option value="main_board" selected>主板优先</option><option value="all">全A含科创/创业</option></select></div>
+      <div><label>展示数量</label><input id="topCount" type="number" value="80" /></div>
+      <div><label>最低评分</label><input id="minScore" type="number" value="70" /></div>
+      <div><label>最低成交额/亿</label><input id="minAmount" type="number" step="0.5" value="1.5" /></div>
+      <div><label>量能下限/倍</label><input id="minAmountRatio" type="number" step="0.1" value="1.8" /></div>
+      <div><label>量能上限/倍</label><input id="maxAmountRatio" type="number" step="0.1" value="5.5" /></div>
+      <div><label>启动涨幅%</label><input id="minLaunchPct" type="number" step="0.5" value="5" /></div>
+      <div><label>突破幅度%</label><input id="breakoutPct" type="number" step="0.1" value="0.5" /></div>
+      <div><label>收盘贴近最高</label><input id="closeNearHigh" type="number" step="0.01" value="0.97" /></div>
+      <div><label>20日振幅上限%</label><input id="maxRange20" type="number" step="1" value="30" /></div>
+      <div><label>60日振幅上限%</label><input id="maxRange60" type="number" step="1" value="75" /></div>
+      <div><label>前20日涨幅上限%</label><input id="maxPreRet20" type="number" step="1" value="16" /></div>
+      <div><label>前60日涨幅上限%</label><input id="maxPreRet60" type="number" step="1" value="32" /></div>
+      <div><label>距120日低点上限%</label><input id="maxSinceLow120" type="number" step="1" value="55" /></div>
+      <div><label>RPS20下限</label><input id="minRps20" type="number" value="68" /></div>
+      <div><label>RPS20上限</label><input id="maxRps20" type="number" value="93" /></div>
+      <div><label>RPS20抬升</label><input id="minRpsDelta" type="number" value="15" /></div>
+      <div><label>RPS120上限</label><input id="maxRps120" type="number" value="96" /></div>
+      <div><label>20日线上比例%</label><input id="minBreadth20" type="number" value="50" /></div>
+      <div><label>60日线上比例%</label><input id="minBreadth60" type="number" value="40" /></div>
+      <div><label>上涨家数比例%</label><input id="minUpRatio" type="number" value="45" /></div>
+      <div><label>行业5日强度</label><input id="minIndustryRps" type="number" value="60" /></div>
+      <div><label>行业量能强度</label><input id="minIndustryAmtRps" type="number" value="45" /></div>
+      <div><label>回踩等待天数</label><input id="pullbackWaitDays" type="number" value="5" /></div>
+      <div><label>回踩上沿%</label><input id="pullbackMaxAbove" type="number" step="0.5" value="3.5" /></div>
+      <div><label>回踩下沿%</label><input id="pullbackMaxBelow" type="number" step="0.5" value="3.5" /></div>
+      <div><label>次日高开上限%</label><input id="maxBuyGap" type="number" step="0.5" value="3" /></div>
+      <div><label>次日低开下限%</label><input id="minBuyGap" type="number" step="0.5" value="-3" /></div>
+      <label class="check"><input id="excludeSt" type="checkbox" checked /> 排除ST</label>
+      <label class="check"><input id="excludeStar" type="checkbox" checked /> 排除科创板</label>
+      <label class="check"><input id="excludeChinext" type="checkbox" checked /> 排除创业板</label>
+      <button onclick="runStrategy()">开始筛选</button>
+      <button class="secondary" onclick="downloadCsv()">导出CSV</button>
+      <button class="ghost" onclick="copyAllCodes()">复制代码</button>
+    </div>
+    <div id="status" class="status">等待筛选。</div>
+  </header>
+  <main>
+    <div class="cards" id="marketCards"></div>
+    <div class="toolbar">
+      <button onclick="runStrategy()">刷新</button>
+      <button class="ghost" onclick="copyPullbackCodes()">复制回踩确认</button>
+      <button class="ghost" onclick="copyAllCodes()">复制全部代码</button>
+      <button class="secondary" onclick="downloadCsv()">导出CSV</button>
+    </div>
+    <div class="table-wrap"><table id="resultTable" class="freeze-code-name"></table></div>
+    <div class="log" id="logBox"></div>
+  </main>
+
+  <div class="modal" id="helpModal" onclick="closeHelpOnBackdrop(event)" aria-hidden="true">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+      <div class="modal-head">
+        <h2 id="helpTitle">第一波启动策略说明</h2>
+        <button class="icon-btn" onclick="closeHelp()" title="关闭" aria-label="关闭">x</button>
+      </div>
+      <div class="modal-body">
+        <h3>策略定位</h3>
+        <ul>
+          <li>寻找低位平台压缩后的首次放量突破，以及启动后首次缩量回踩确认。</li>
+          <li>RPS不是越高越好，默认要求RPS20处在68-93，并且最近10日快速抬升，避免已走成二波的成熟强势股。</li>
+          <li>盘中模式会用实时行情合成临时日K，适合提前观察，最终仍应等收盘和次日开盘缺口确认。</li>
+        </ul>
+        <h3>买点计划</h3>
+        <ul>
+          <li>启动日候选：次日开盘相对触发收盘价不能高开过多，默认超过3%放弃。</li>
+          <li>回踩确认：启动后数日缩量回踩，不破启动结构和短均线，再作为次日候选。</li>
+          <li>失效条件：跌回启动阳线低点、跌破MA10、板块没有继续扩散，或成交额榜显示放量滞涨。</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <script src="/global-settings.js"></script>
+  <script src="/app-layout.js"></script>
+  <script src="/backtest.js"></script>
+  <script>
+    const today = new Date();
+    document.getElementById("endDate").value = `${today.getFullYear()}${String(today.getMonth()+1).padStart(2,"0")}${String(today.getDate()).padStart(2,"0")}`;
+    let rows = [];
+    let latestMarket = {};
+    let sortState = {};
+    const cols = [
+      ["code","代码"],["name","名称"],["stock_type","股票类型"],["industry","行业"],["setup","形态"],["entry_mode","买点"],["score","评分"],
+      ["close","收盘"],["pct_chg","涨跌%"],["amount_yi","成交额亿"],["amount_ratio","量能倍数"],["turnover_rate_f","实换手%"],["market_cap_yi","总市值亿"],
+      ["rps20","RPS20"],["rps20_delta10","RPS抬升"],["rps60","RPS60"],["rps120","RPS120"],["range20","20日振幅%"],["pre_ret20","前20日%"],["pre_ret60","前60日%"],["since_low120","距120低点%"],
+      ["break_strength","突破强度%"],["industry_rps5","行业强度"],["industry_amt_rps","行业量能"],["breadth20","20日线上%"],["up_ratio","上涨家数%"],
+      ["launch_date","启动日"],["launch_pct_chg","启动涨幅%"],["launch_amount_yi","启动成交亿"],["trigger_close","触发收盘"],["buy_plan","买点计划"],["invalid_condition","失效条件"],["risk_flags","风险"],["reason","理由"]
+    ];
+
+    function goStrategy(select) {
+      const target = select.value;
+      const current = window.location.pathname === "/index.html" ? "/" : window.location.pathname;
+      if (target && target !== current) {
+        if (window.matchMedia("(max-width: 900px)").matches) {
+          window.location.href = target;
+          return;
+        }
+        window.open(target, "_blank", "noopener");
+      }
+      select.value = current;
+    }
+
+    function payload() {
+      const dataSource = getGlobalDataSourcePayload();
+      if (!dataSource) return null;
+      return {
+        ...dataSource,
+        review_mode: document.getElementById("reviewMode").value,
+        end_date: document.getElementById("endDate").value.trim(),
+        lookback_days: 170,
+        first_wave_top_count: Number(document.getElementById("topCount").value),
+        first_wave_entry_mode: document.getElementById("entryMode").value,
+        first_wave_stock_scope: document.getElementById("stockScope").value,
+        first_wave_min_score: Number(document.getElementById("minScore").value),
+        first_wave_min_amount_yi: Number(document.getElementById("minAmount").value),
+        first_wave_min_amount_ratio: Number(document.getElementById("minAmountRatio").value),
+        first_wave_max_amount_ratio: Number(document.getElementById("maxAmountRatio").value),
+        first_wave_min_launch_pct: Number(document.getElementById("minLaunchPct").value),
+        first_wave_breakout_pct: Number(document.getElementById("breakoutPct").value),
+        first_wave_close_near_high: Number(document.getElementById("closeNearHigh").value),
+        first_wave_max_range20: Number(document.getElementById("maxRange20").value),
+        first_wave_max_range60: Number(document.getElementById("maxRange60").value),
+        first_wave_max_pre_ret20: Number(document.getElementById("maxPreRet20").value),
+        first_wave_max_pre_ret60: Number(document.getElementById("maxPreRet60").value),
+        first_wave_max_since_low120: Number(document.getElementById("maxSinceLow120").value),
+        first_wave_min_rps20: Number(document.getElementById("minRps20").value),
+        first_wave_max_rps20: Number(document.getElementById("maxRps20").value),
+        first_wave_min_rps20_delta10: Number(document.getElementById("minRpsDelta").value),
+        first_wave_max_rps120: Number(document.getElementById("maxRps120").value),
+        first_wave_min_breadth20: Number(document.getElementById("minBreadth20").value),
+        first_wave_min_breadth60: Number(document.getElementById("minBreadth60").value),
+        first_wave_min_up_ratio: Number(document.getElementById("minUpRatio").value),
+        first_wave_min_industry_rps5: Number(document.getElementById("minIndustryRps").value),
+        first_wave_min_industry_amt_rps: Number(document.getElementById("minIndustryAmtRps").value),
+        first_wave_pullback_wait_days: Number(document.getElementById("pullbackWaitDays").value),
+        first_wave_pullback_max_above: Number(document.getElementById("pullbackMaxAbove").value),
+        first_wave_pullback_max_below: Number(document.getElementById("pullbackMaxBelow").value),
+        first_wave_max_buy_gap_pct: Number(document.getElementById("maxBuyGap").value),
+        first_wave_min_buy_gap_pct: Number(document.getElementById("minBuyGap").value),
+        first_wave_exclude_st: document.getElementById("excludeSt").checked,
+        first_wave_exclude_star: document.getElementById("excludeStar").checked,
+        first_wave_exclude_chinext: document.getElementById("excludeChinext").checked
+      };
+    }
+
+    async function runStrategy() {
+      const body = payload();
+      if (!body) return;
+      setStatus(body.review_mode === "intraday" ? "正在盘中试探第一波信号..." : "正在筛选第一波启动候选...");
+      try {
+        const res = await fetch("/api/first_wave", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)});
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error || "筛选失败");
+        rows = data.rows || [];
+        latestMarket = data.market || {};
+        renderMarket(latestMarket);
+        renderTable();
+        document.getElementById("logBox").textContent = (data.logs || []).join("\n");
+        setStatus(`筛选完成，交易日 ${data.trade_date}，共 ${rows.length} 只`);
+      } catch (err) {
+        setStatus(`筛选失败：${err.message}`, true);
+      }
+    }
+
+    function renderMarket(m) {
+      const items = [
+        ["交易日", m.trade_date],["模式", m.review_mode],["20日线上比例", pctText(m.breadth20)],["60日线上比例", pctText(m.breadth60)],
+        ["上涨家数比例", pctText(m.up_ratio)],["中位涨跌", pctText(m.median_pct)],["启动日数量", m.launch_count],["候选数量", m.candidate_count],
+        ["回踩确认", m.pullback_count],["提示", m.note, true]
+      ];
+      document.getElementById("marketCards").innerHTML = items.map(([k,v,wide]) => (
+        `<div class="metric ${wide ? "wide" : ""}"><span>${escapeHtml(k)}</span><strong>${escapeHtml(v ?? "")}</strong></div>`
+      )).join("");
+    }
+
+    function renderTable() {
+      const head = `<thead><tr>${cols.map(c=>`<th onclick="sortTable('${c[0]}')">${c[1]} ${sortMark(c[0])}</th>`).join("")}<th>操作</th></tr></thead>`;
+      const body = `<tbody>${rows.map((r,i)=>`<tr>${cols.map(c=>`<td>${renderCell(r, c[0])}</td>`).join("")}<td><button class="mini-btn" onclick="copyRow(${i})">复制整行</button></td></tr>`).join("")}</tbody>`;
+      document.getElementById("resultTable").innerHTML = head + (rows.length ? body : `<tbody><tr><td colspan="${cols.length + 1}">暂无候选</td></tr></tbody>`);
+    }
+
+    function renderCell(row, key) {
+      const value = row[key] ?? "";
+      if (key === "code") return `<span class="code-cell" onclick="copyText('${escapeAttr(value)}')">${escapeHtml(value)}</span>`;
+      if (key === "setup") return `<span class="${value === "回踩确认" ? "setup-pullback" : "setup-launch"}">${escapeHtml(value)}</span>`;
+      if (["pct_chg","pre_ret20","pre_ret60","break_strength","up_ratio"].includes(key)) {
+        return `<span class="${Number(value) >= 0 ? "positive" : "bad"}">${escapeHtml(value)}</span>`;
+      }
+      if (key === "risk_flags" && value !== "正常") return `<span class="warn">${escapeHtml(value)}</span>`;
+      return escapeHtml(value);
+    }
+
+    function sortTable(key) {
+      const current = sortState[key] || "desc";
+      const next = current === "desc" ? "asc" : "desc";
+      sortState = {[key]: next};
+      rows.sort((a,b) => {
+        const av = a[key], bv = b[key];
+        const an = Number(av), bn = Number(bv);
+        let result = 0;
+        if (Number.isFinite(an) && Number.isFinite(bn)) result = an - bn;
+        else result = String(av ?? "").localeCompare(String(bv ?? ""), "zh-CN");
+        return next === "asc" ? result : -result;
+      });
+      renderTable();
+    }
+
+    function sortMark(key) {
+      return sortState[key] ? (sortState[key] === "asc" ? "▲" : "▼") : "";
+    }
+
+    function copyAllCodes() {
+      copyText(rows.map(r => r.code).join("\n"));
+    }
+
+    function copyPullbackCodes() {
+      copyText(rows.filter(r => r.setup === "回踩确认").map(r => r.code).join("\n"));
+    }
+
+    function copyRow(index) {
+      const row = rows[index];
+      copyText(cols.map(col => `${col[1]}:${row[col[0]] ?? ""}`).join("  "));
+    }
+
+    function copyText(text) {
+      if (!text) return;
+      navigator.clipboard.writeText(text);
+    }
+
+    function downloadCsv() {
+      if (!rows.length) { alert("暂无数据"); return; }
+      const csv = [cols.map(c => c[1]).join(",")].concat(rows.map(row => (
+        cols.map(c => `"${String(row[c[0]] ?? "").replaceAll('"','""')}"`).join(",")
+      ))).join("\n");
+      const blob = new Blob(["\ufeff" + csv], {type:"text/csv;charset=utf-8"});
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `first_wave_${document.getElementById("endDate").value.trim() || "result"}.csv`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    function setStatus(text, bad=false) {
+      const el = document.getElementById("status");
+      el.textContent = text;
+      el.className = bad ? "status bad" : "status";
+    }
+
+    function pctText(value) {
+      if (value === undefined || value === null || value === "") return "";
+      return `${Number(value).toFixed(2)}%`;
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/[&<>"']/g, s => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[s]));
+    }
+
+    function escapeAttr(value) {
+      return String(value ?? "").replace(/['\\]/g, "\\$&");
+    }
+
+    function openHelp() {
+      const modal = document.getElementById("helpModal");
+      modal.classList.add("open");
+      modal.setAttribute("aria-hidden", "false");
+    }
+    function closeHelp() {
+      const modal = document.getElementById("helpModal");
+      modal.classList.remove("open");
+      modal.setAttribute("aria-hidden", "true");
+    }
+    function closeHelpOnBackdrop(event) {
+      if (event.target.id === "helpModal") closeHelp();
+    }
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape") closeHelp();
+    });
+
+    initBacktestPanel({
+      strategy: "first_wave",
+      getPayload: payload
+    });
+  </script>
+</body>
+</html>

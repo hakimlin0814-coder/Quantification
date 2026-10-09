@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>涨停板策略</title>
+  <style>
+    :root { --bg:#f6f7f9; --panel:#fff; --text:#172033; --muted:#657084; --line:#dfe3ea; --accent:#1769e0; --good:#087f5b; --warn:#b7791f; --bad:#c92a2a; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:"Microsoft YaHei", Arial, sans-serif; color:var(--text); background:var(--bg); }
+    header { background:var(--panel); border-bottom:1px solid var(--line); padding:14px 18px; }
+    .topbar { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; }
+    .header-actions { display:flex; align-items:center; gap:8px; }
+    .strategy-nav { width:190px; }
+    h1 { margin:0; font-size:20px; }
+    a { color:var(--accent); text-decoration:none; font-weight:700; }
+    .controls { display:grid; grid-template-columns:repeat(6, minmax(120px, 1fr)); gap:10px; align-items:end; }
+    label { display:block; font-size:12px; color:var(--muted); margin-bottom:4px; }
+    input { width:100%; height:34px; border:1px solid var(--line); border-radius:6px; padding:0 8px; background:#fff; }
+    select { width:100%; height:34px; border:1px solid var(--line); border-radius:6px; padding:0 8px; background:#fff; }
+    .check { height:34px; display:flex; align-items:center; gap:8px; border:1px solid var(--line); border-radius:6px; padding:0 8px; background:#fff; color:var(--text); font-size:13px; }
+    .check input { width:auto; height:auto; }
+    button { height:34px; border:0; border-radius:6px; background:var(--accent); color:#fff; font-weight:700; cursor:pointer; padding:0 14px; }
+    button.secondary { background:#354052; }
+    button.ghost { background:#fff; color:var(--accent); border:1px solid var(--accent); }
+    button.mini-btn { height:26px; padding:0 8px; font-size:12px; border-radius:5px; background:#eef4ff; color:var(--accent); border:1px solid #b8cff8; }
+    .icon-btn { width:34px; padding:0; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--line); background:#fff; color:var(--text); font-weight:800; }
+    main { padding:14px 18px 28px; }
+    .status { color:var(--muted); margin:8px 0 12px; }
+    .bad { color:var(--bad); font-weight:700; }
+    .cards { display:grid; grid-template-columns:repeat(4, minmax(150px, 1fr)); gap:10px; margin:0 0 12px; }
+    .metric { background:#fff; border:1px solid var(--line); border-radius:8px; padding:12px; }
+    .metric span { display:block; color:var(--muted); font-size:12px; margin-bottom:6px; }
+    .metric strong { font-size:18px; }
+    .section-title { margin:18px 0 10px; font-size:16px; }
+    .toolbar { display:flex; gap:8px; flex-wrap:wrap; margin:0 0 12px; }
+    .code-cell { color:var(--accent); font-weight:700; cursor:pointer; }
+    .action-buy { color:var(--good); font-weight:800; }
+    .action-wait { color:var(--warn); font-weight:800; }
+    .action-stop { color:var(--bad); font-weight:800; }
+    .table-wrap { background:#fff; border:1px solid var(--line); border-radius:8px; overflow:auto; max-height:calc(100vh - 260px); position:relative; }
+    table { width:100%; border-collapse:collapse; min-width:1150px; }
+    table.live-table { min-width:1770px; }
+    th, td { padding:9px 10px; border-bottom:1px solid var(--line); text-align:center; font-size:13px; white-space:nowrap; }
+    th { position:sticky; top:0; background:#f0f3f7; cursor:pointer; user-select:none; z-index:3; }
+    .freeze-code-name th:nth-child(1), .freeze-code-name td:nth-child(1) { position:sticky; left:0; z-index:2; min-width:88px; width:88px; max-width:88px; overflow:hidden; text-overflow:ellipsis; background:#fff; box-shadow:1px 0 0 var(--line); }
+    .freeze-code-name th:nth-child(2), .freeze-code-name td:nth-child(2) { position:sticky; left:88px; z-index:2; min-width:126px; width:126px; max-width:126px; overflow:hidden; text-overflow:ellipsis; background:#fff; box-shadow:1px 0 0 var(--line); }
+    .freeze-code-name th:nth-child(1), .freeze-code-name th:nth-child(2) { top:0; z-index:5; background:#f0f3f7; }
+    .log { margin-top:12px; background:#101828; color:#d7e2f1; border-radius:8px; padding:12px; height:180px; overflow:auto; white-space:pre-wrap; }
+    .modal { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(16,24,40,.45); padding:18px; z-index:10; }
+    .modal.open { display:flex; }
+    .modal-card { width:min(760px, 100%); max-height:88vh; overflow:auto; background:#fff; border-radius:8px; box-shadow:0 18px 60px rgba(16,24,40,.24); border:1px solid var(--line); }
+    .modal-head { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 16px; border-bottom:1px solid var(--line); }
+    .modal-head h2 { margin:0; font-size:16px; }
+    .modal-body { padding:14px 16px 16px; color:#2d3748; line-height:1.65; }
+    .modal-body h3 { margin:14px 0 6px; font-size:15px; color:var(--text); }
+    .modal-body ul { margin:6px 0 0; padding-left:20px; }
+    @media (max-width:900px) {
+      .topbar { align-items:flex-start; flex-direction:column; }
+      .header-actions { width:100%; }
+      .strategy-nav { flex:1; width:auto; }
+      .controls { grid-template-columns:repeat(2, minmax(130px, 1fr)); }
+      h1 { font-size:18px; }
+    }
+  </style>
+  <link rel="stylesheet" href="/app-layout.css" />
+</head>
+<body>
+  <header>
+    <div class="topbar">
+      <h1>涨停板策略</h1>
+      <div class="header-actions">
+        <select id="strategyNav" class="strategy-nav" onchange="goStrategy(this)" aria-label="策略切换">
+          <option value="/">大盘总览</option>
+          <option value="/mainline-review">主线复盘策略</option>
+          <option value="/concept-radar">同花顺概念雷达</option>
+          <option value="/first-limit" selected>涨停板策略</option>
+          <option value="/canslim-tao">CANSLIM+RPS策略</option>
+          <option value="/value-fcf">低估值现金流策略</option>
+          <option value="/dividend-low-vol">红利低波防守策略</option>
+          <option value="/stock-search">股票模糊搜索</option>
+          <option value="/realtime-ma">批量实时MA检查</option>
+        </select>
+        <button class="icon-btn" onclick="openHelp()" title="查看说明" aria-label="查看说明">?</button>
+      </div>
+    </div>
+    <div class="controls">
+      <div><label>日期 YYYYMMDD</label><input id="endDate" /></div>
+      <div><label>连板范围</label><input id="boardRange" value="1-1" placeholder="例如 1-2、2-、3-5" /></div>
+      <div><label>最低总市值/亿</label><input id="minMarketCap" type="number" step="10" value="100" /></div>
+      <div><label>最高换手率%</label><input id="maxTurnover" type="number" step="0.5" value="10" /></div>
+      <div><label>换手口径</label><select id="turnoverField"><option value="turnover_rate_f" selected>实换手率</option><option value="turnover_rate">普通换手率</option></select></div>
+      <div><label>行业市值排名前N</label><input id="industryRankTop" type="number" value="5" /></div>
+      <div><label>行业排名口径</label><select id="industryRankLevel"><option value="sw_l3" selected>申万三级</option><option value="sw_l2">申万二级</option><option value="sw_l1">申万一级</option><option value="basic">Tushare基础行业</option></select></div>
+      <label class="check"><input id="excludeSt" type="checkbox" checked /> 排除ST</label>
+      <label class="check"><input id="excludeStar" type="checkbox" checked /> 排除科创板</label>
+      <label class="check"><input id="excludeChinext" type="checkbox" checked /> 排除创业板</label>
+      <button onclick="runFirstLimit()">开始筛选</button>
+      <button onclick="runOneToTwoLive()">1进2实时判断</button>
+      <button class="secondary" onclick="downloadCsv()">导出CSV</button>
+      <button class="secondary" onclick="downloadThsTxt()">导出同花顺TXT</button>
+      <button class="ghost" onclick="copyAllCodes()">复制全部代码</button>
+    </div>
+    <div id="status" class="status">等待筛选。</div>
+  </header>
+  <main>
+    <h2 class="section-title">涨停板筛选结果</h2>
+    <div class="toolbar">
+      <button class="ghost" onclick="copyAllCodes()">复制全部代码</button>
+      <button class="secondary" onclick="downloadThsTxt()">导出同花顺自选股TXT</button>
+    </div>
+    <div class="table-wrap"><table id="resultTable" class="freeze-code-name"></table></div>
+    <h2 class="section-title">1进2实时判断</h2>
+    <div class="cards" id="liveSummaryCards"></div>
+    <div class="toolbar">
+      <button onclick="runOneToTwoLive()">实时判断</button>
+      <button class="ghost" onclick="copyBuyCodes()">复制可买代码</button>
+      <button class="ghost" onclick="copyAllLiveCodes()">复制全部实时代码</button>
+      <button class="secondary" onclick="downloadLiveCsv()">导出实时判断CSV</button>
+    </div>
+    <div class="table-wrap"><table id="liveTable" class="live-table freeze-code-name"></table></div>
+    <div class="log" id="logBox"></div>
+  </main>
+
+  <div class="modal" id="helpModal" onclick="closeHelpOnBackdrop(event)" aria-hidden="true">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+      <div class="modal-head">
+        <h2 id="helpTitle">涨停板策略说明</h2>
+        <button class="icon-btn" onclick="closeHelp()" title="关闭" aria-label="关闭">x</button>
+      </div>
+      <div class="modal-body">
+        <h3>策略逻辑</h3>
+        <ul>
+          <li>筛选当日涨停且连板数落在指定范围内的股票，默认用于首板观察。</li>
+          <li>可按市值、换手率、申万行业市值排名过滤，减少流动性不足或后排标的。</li>
+          <li>1进2实时判断使用前一交易日首板候选叠加实时行情，输出动作、买点和失效条件。</li>
+        </ul>
+        <h3>界面使用</h3>
+        <ul>
+          <li>“连板范围”支持 1-1、1-2、2-、3-5 这类写法。</li>
+          <li>点击股票代码可复制单个代码，工具栏可复制全部或导出同花顺 TXT。</li>
+          <li>实时判断适合盘中使用，盘后复盘时重点看筛选结果和日志。</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <script src="/global-settings.js"></script>
+  <script src="/app-layout.js"></script>
+  <script src="/backtest.js"></script>
+  <script>
+    const today = new Date();
+    document.getElementById("endDate").value = `${today.getFullYear()}${String(today.getMonth()+1).padStart(2,"0")}${String(today.getDate()).padStart(2,"0")}`;
+    let rows = [];
+    let liveRows = [];
+    let liveMeta = {};
+    let sortState = {};
+    let liveSortState = {};
+    const cols = [
+      ["code","代码"],["name","名称"],["stock_type","股票类型"],["industry","基础行业"],["rank_industry","排名行业"],["industry_mv_rank","行业市值排名"],["market","市场"],["close","收盘"],["pct_chg","涨跌%"],["amount_yi","成交额亿"],
+      ["turnover_rate","换手%"],["turnover_rate_f","实换手%"],["market_cap_yi","总市值亿"],["circ_mv_yi","流通市值亿"],["volume_ratio","量比"],["limit_times","连板数"],["reason","筛选说明"]
+    ];
+    const liveCols = [
+      ["code","代码"],["name","名称"],["stock_type","股票类型"],["action","建议动作"],["score","评分"],["stage","阶段"],["industry","基础行业"],["industry_mv_rank","行业排名"],
+      ["open_pct","开盘%"],["current_pct","当前%"],["amount_ratio","量/昨%"],["current_amount_yi","成交额亿"],
+      ["current_price","现价"],["open_price","今开"],["high_price","今高"],["prev_high","昨高"],["prev_close","昨收"],["prev_vwap","昨均价"],["limit_price","涨停价"],["distance_to_limit","距板%"],
+      ["market_cap_yi","总市值亿"],["turnover_rate_f","实换手%"],["buy_point","买点"],["invalid_condition","失效条件"],["reasons","理由"]
+    ];
+
+    function goStrategy(select) {
+      const target = select.value;
+      const current = window.location.pathname === "/index.html" ? "/" : window.location.pathname;
+      if (target && target !== current) {
+        if (window.matchMedia("(max-width: 900px)").matches) {
+          window.location.href = target;
+          return;
+        }
+        window.open(target, "_blank", "noopener");
+      }
+      select.value = current;
+    }
+
+    async function runFirstLimit() {
+      const dataSource = getGlobalDataSourcePayload();
+      if (!dataSource) return;
+      setStatus("正在筛选涨停板...");
+      const payload = {
+        ...dataSource,
+        end_date: document.getElementById("endDate").value.trim(),
+        first_limit_board_range: document.getElementById("boardRange").value.trim(),
+        first_limit_exclude_st: document.getElementById("excludeSt").checked,
+        first_limit_exclude_star: document.getElementById("excludeStar").checked,
+        first_limit_exclude_chinext: document.getElementById("excludeChinext").checked,
+        first_limit_min_market_cap_yi: Number(document.getElementById("minMarketCap").value),
+        first_limit_max_turnover_rate: Number(document.getElementById("maxTurnover").value),
+        first_limit_turnover_field: document.getElementById("turnoverField").value,
+        first_limit_industry_mv_rank_top: Number(document.getElementById("industryRankTop").value),
+        first_limit_industry_rank_level: document.getElementById("industryRankLevel").value
+      };
+      try {
+        const res = await fetch("/api/first_limit", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload)});
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error || "筛选失败");
+        rows = data.rows || [];
+        renderTable();
+        document.getElementById("logBox").textContent = data.logs.join("\n");
+        setStatus(`筛选完成，交易日 ${data.trade_date}，共 ${rows.length} 只`);
+      } catch (err) {
+        setStatus(`筛选失败：${err.message}`, true);
+      }
+    }
+    async function runOneToTwoLive() {
+      const dataSource = getGlobalDataSourcePayload();
+      if (!dataSource) return;
+      setStatus("正在做1进2实时判断...");
+      const payload = {
+        ...dataSource,
+        end_date: document.getElementById("endDate").value.trim(),
+        first_limit_board_range: "1-1",
+        first_limit_exclude_st: document.getElementById("excludeSt").checked,
+        first_limit_exclude_star: document.getElementById("excludeStar").checked,
+        first_limit_exclude_chinext: document.getElementById("excludeChinext").checked,
+        first_limit_min_market_cap_yi: Number(document.getElementById("minMarketCap").value),
+        first_limit_max_turnover_rate: Number(document.getElementById("maxTurnover").value),
+        first_limit_turnover_field: "turnover_rate_f",
+        first_limit_industry_mv_rank_top: Number(document.getElementById("industryRankTop").value),
+        first_limit_industry_rank_level: document.getElementById("industryRankLevel").value
+      };
+      try {
+        const res = await fetch("/api/one_to_two_live", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload)});
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error || "实时判断失败");
+        liveRows = data.rows || [];
+        liveMeta = data;
+        renderLiveSummary();
+        renderLiveTable();
+        document.getElementById("logBox").textContent = (data.logs || []).join("\n");
+        setStatus(`1进2判断完成，候选日 ${data.candidate_date}，实时日 ${data.live_date}，阶段：${data.stage}，共 ${liveRows.length} 只`);
+      } catch (err) {
+        setStatus(`1进2判断失败：${err.message}`, true);
+      }
+    }
+
+    function setStatus(text, bad=false) {
+      const el = document.getElementById("status");
+      el.textContent = text;
+      el.className = bad ? "status bad" : "status";
+    }
+    function renderTable() {
+      const head = `<thead><tr>${cols.map(c=>`<th onclick="sortTable('${c[0]}')">${c[1]} ${sortMark(c[0])}</th>`).join("")}<th>操作</th></tr></thead>`;
+      const body = `<tbody>${rows.map((r,i)=>`<tr>${cols.map(c=>`<td>${renderCell(r, c[0])}</td>`).join("")}<td><button class="mini-btn" onclick="copyRow(rows[${i}], cols)">复制整行</button></td></tr>`).join("")}</tbody>`;
+      document.getElementById("resultTable").innerHTML = head + body;
+    }
+    function renderLiveSummary() {
+      const counts = liveRows.reduce((acc, row) => {
+        acc[row.action] = (acc[row.action] || 0) + 1;
+        return acc;
+      }, {});
+      const items = [
+        ["实时阶段", liveMeta.stage || ""],
+        ["候选日", liveMeta.candidate_date || ""],
+        ["可买", counts["可买"] || 0],
+        ["等回封/承接", (counts["等回封"] || 0) + (counts["等承接"] || 0)]
+      ];
+      document.getElementById("liveSummaryCards").innerHTML = items.map(([k,v]) => `<div class="metric"><span>${k}</span><strong>${v}</strong></div>`).join("");
+    }
+    function renderLiveTable() {
+      const head = `<thead><tr>${liveCols.map(c=>`<th onclick="sortLiveTable('${c[0]}')">${c[1]} ${sortLiveMark(c[0])}</th>`).join("")}<th>操作</th></tr></thead>`;
+      const body = `<tbody>${liveRows.map((r,i)=>`<tr>${liveCols.map(c=>`<td>${renderLiveCell(r, c[0])}</td>`).join("")}<td><button class="mini-btn" onclick="copyRow(liveRows[${i}], liveCols)">复制整行</button></td></tr>`).join("")}</tbody>`;
+      document.getElementById("liveTable").innerHTML = head + body;
+    }
+    function renderCell(row, key) {
+      const value = row[key] ?? "";
+      if (key === "code") {
+        return `<span class="code-cell" title="点击复制代码" onclick="copyCode('${value}')">${value}</span>`;
+      }
+      return value;
+    }
+    function renderLiveCell(row, key) {
+      const value = row[key] ?? "";
+      if (key === "code") {
+        return `<span class="code-cell" title="点击复制代码" onclick="copyCode('${value}')">${value}</span>`;
+      }
+      if (key === "action") {
+        const cls = value === "可买" ? "action-buy" : (value === "放弃" || value === "无实时" ? "action-stop" : "action-wait");
+        return `<span class="${cls}">${value}</span>`;
+      }
+      return value;
+    }
+    function sortMark(key) {
+      if (sortState.key !== key) return "";
+      return sortState.dir === "asc" ? "▲" : "▼";
+    }
+    function sortTable(key) {
+      const dir = sortState.key === key && sortState.dir === "desc" ? "asc" : "desc";
+      sortState = {key, dir};
+      rows.sort((a, b) => compareCell(a[key], b[key], dir));
+      renderTable();
+    }
+    function sortLiveMark(key) {
+      if (liveSortState.key !== key) return "";
+      return liveSortState.dir === "asc" ? "▲" : "▼";
+    }
+    function sortLiveTable(key) {
+      const dir = liveSortState.key === key && liveSortState.dir === "desc" ? "asc" : "desc";
+      liveSortState = {key, dir};
+      liveRows.sort((a, b) => compareCell(a[key], b[key], dir));
+      renderLiveTable();
+    }
+    function compareCell(a, b, dir) {
+      const na = parseFloat(a), nb = parseFloat(b);
+      let result = (!Number.isNaN(na) && !Number.isNaN(nb)) ? na - nb : String(a ?? "").localeCompare(String(b ?? ""), "zh-Hans-CN");
+      return dir === "asc" ? result : -result;
+    }
+    function downloadCsv() {
+      if (!rows.length) { alert("暂无数据"); return; }
+      const keys = cols.map(c => c[0]);
+      const csv = [keys.join(",")].concat(rows.map(r => keys.map(k => `"${String(r[k] ?? "").replaceAll('"','""')}"`).join(","))).join("\n");
+      const blob = new Blob(["\ufeff" + csv], {type:"text/csv;charset=utf-8"});
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `first_limit_${new Date().toISOString().slice(0,10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+    function getCodes() {
+      return [...new Set(rows.map(r => String(r.code || "").trim()).filter(Boolean))];
+    }
+    async function copyCode(code) {
+      await navigator.clipboard.writeText(code);
+      setStatus(`已复制 ${code}`);
+    }
+    async function copyRow(row, columns) {
+      if (!row) return;
+      const header = columns.map(c => c[1]).join("\t");
+      const line = columns.map(c => String(row[c[0]] ?? "").replace(/\s+/g, " ").trim()).join("\t");
+      await navigator.clipboard.writeText(`${header}\n${line}`);
+      setStatus("已复制整行数据和表头");
+    }
+    async function copyAllCodes() {
+      const codes = getCodes();
+      if (!codes.length) { alert("暂无数据"); return; }
+      await navigator.clipboard.writeText(codes.join("\n"));
+      setStatus(`已复制 ${codes.length} 个代码`);
+    }
+    function downloadThsTxt() {
+      const codes = getCodes();
+      if (!codes.length) { alert("暂无数据"); return; }
+      const blob = new Blob([codes.join("\r\n") + "\r\n"], {type:"text/plain;charset=utf-8"});
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `ths_watchlist_${new Date().toISOString().slice(0,10)}.txt`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+    function getLiveCodes(filterAction="") {
+      return [...new Set(liveRows.filter(r => !filterAction || r.action === filterAction).map(r => String(r.code || "").trim()).filter(Boolean))];
+    }
+    async function copyBuyCodes() {
+      const codes = getLiveCodes("可买");
+      if (!codes.length) { alert("暂无可买代码"); return; }
+      await navigator.clipboard.writeText(codes.join("\n"));
+      setStatus(`已复制 ${codes.length} 个可买代码`);
+    }
+    async function copyAllLiveCodes() {
+      const codes = getLiveCodes();
+      if (!codes.length) { alert("暂无实时判断数据"); return; }
+      await navigator.clipboard.writeText(codes.join("\n"));
+      setStatus(`已复制 ${codes.length} 个实时判断代码`);
+    }
+    function downloadLiveCsv() {
+      if (!liveRows.length) { alert("暂无实时判断数据"); return; }
+      const keys = liveCols.map(c => c[0]);
+      const csv = [keys.join(",")].concat(liveRows.map(r => keys.map(k => `"${String(r[k] ?? "").replaceAll('"','""')}"`).join(","))).join("\n");
+      const blob = new Blob(["\ufeff" + csv], {type:"text/csv;charset=utf-8"});
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `one_to_two_live_${new Date().toISOString().slice(0,10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+    function openHelp() {
+      const modal = document.getElementById("helpModal");
+      modal.classList.add("open");
+      modal.setAttribute("aria-hidden", "false");
+    }
+    function closeHelp() {
+      const modal = document.getElementById("helpModal");
+      modal.classList.remove("open");
+      modal.setAttribute("aria-hidden", "true");
+    }
+    function closeHelpOnBackdrop(event) {
+      if (event.target.id === "helpModal") closeHelp();
+    }
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape") closeHelp();
+    });
+    initBacktestPanel({
+      strategy: "first_limit",
+      getPayload: () => {
+        const dataSource = getGlobalDataSourcePayload();
+        if (!dataSource) return null;
+        return {
+          ...dataSource,
+          review_mode: "after_close",
+          end_date: document.getElementById("endDate").value.trim(),
+          first_limit_board_range: document.getElementById("boardRange").value.trim(),
+          first_limit_exclude_st: document.getElementById("excludeSt").checked,
+          first_limit_exclude_star: document.getElementById("excludeStar").checked,
+          first_limit_exclude_chinext: document.getElementById("excludeChinext").checked,
+          first_limit_min_market_cap_yi: Number(document.getElementById("minMarketCap").value),
+          first_limit_max_turnover_rate: Number(document.getElementById("maxTurnover").value),
+          first_limit_turnover_field: document.getElementById("turnoverField").value,
+          first_limit_industry_mv_rank_top: Number(document.getElementById("industryRankTop").value),
+          first_limit_industry_rank_level: document.getElementById("industryRankLevel").value
+        };
+      }
+    });
+  </script>
+</body>
+</html>

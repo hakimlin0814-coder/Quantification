@@ -1,0 +1,1016 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CANSLIM + RPS策略</title>
+  <style>
+    :root { --bg:#f6f7f9; --panel:#fff; --text:#172033; --muted:#657084; --line:#dfe3ea; --accent:#1769e0; --good:#087f5b; --warn:#b7791f; --bad:#c92a2a; --ink:#101828; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:"Microsoft YaHei", Arial, sans-serif; color:var(--text); background:var(--bg); }
+    header { background:var(--panel); border-bottom:1px solid var(--line); padding:14px 18px; }
+    .topbar { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; }
+    h1 { margin:0; font-size:20px; line-height:1.25; }
+    .header-actions { display:flex; align-items:center; gap:8px; }
+    .strategy-nav { width:190px; }
+    .control-sections { display:grid; grid-template-columns:repeat(2, minmax(280px, 1fr)); gap:10px; }
+    .section-panel { background:#fff; border:1px solid var(--line); border-radius:8px; overflow:hidden; }
+    .section-panel > summary { display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:40px; padding:9px 12px; cursor:pointer; font-size:14px; font-weight:800; color:var(--text); list-style:none; }
+    .section-panel > summary::-webkit-details-marker { display:none; }
+    .section-panel > summary::after { content:"+"; color:var(--accent); font-size:18px; line-height:1; }
+    .section-panel[open] > summary::after { content:"-"; }
+    .summary-note { color:var(--muted); font-size:12px; font-weight:400; }
+    .section-panel .controls { border-top:1px solid var(--line); padding:10px; }
+    .controls { display:grid; grid-template-columns:repeat(6, minmax(120px, 1fr)); gap:10px; align-items:end; }
+    label { display:block; font-size:12px; color:var(--muted); margin-bottom:4px; }
+    input, select { width:100%; height:34px; border:1px solid var(--line); border-radius:6px; padding:0 8px; background:#fff; color:var(--text); }
+    .check { height:34px; display:flex; align-items:center; gap:8px; border:1px solid var(--line); border-radius:6px; padding:0 8px; background:#fff; color:var(--text); font-size:13px; }
+    .check input { width:auto; height:auto; }
+    button { height:34px; border:0; border-radius:6px; background:var(--accent); color:#fff; font-weight:700; cursor:pointer; padding:0 14px; }
+    button.secondary { background:#354052; }
+    button.ghost { background:#fff; color:var(--accent); border:1px solid var(--accent); }
+    button.mini-btn { height:26px; padding:0 8px; font-size:12px; border-radius:5px; background:#eef4ff; color:var(--accent); border:1px solid #b8cff8; }
+    .icon-btn { width:34px; padding:0; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--line); background:#fff; color:var(--text); font-weight:800; }
+    main { padding:14px 18px 28px; }
+    .status { color:var(--muted); margin:8px 0 0; }
+    .bad { color:var(--bad); font-weight:700; }
+    .cards { display:grid; grid-template-columns:repeat(6, minmax(130px, 1fr)); gap:10px; margin-bottom:12px; }
+    .metric { background:#fff; border:1px solid var(--line); border-radius:8px; padding:12px; min-height:78px; }
+    .metric span { display:block; color:var(--muted); font-size:12px; margin-bottom:6px; }
+    .metric strong { display:block; font-size:18px; line-height:1.3; overflow-wrap:anywhere; }
+    .metric.wide { grid-column:span 3; }
+    .metric.wide strong { font-size:14px; line-height:1.55; font-weight:700; }
+    .toolbar { display:flex; gap:8px; flex-wrap:wrap; margin:0 0 12px; }
+    .column-panel { flex:1 0 100%; }
+    .column-actions { display:flex; gap:8px; flex-wrap:wrap; margin:0 0 10px; }
+    .column-grid { display:grid; grid-template-columns:repeat(6, minmax(125px, 1fr)); gap:8px; }
+    .column-option { display:flex; align-items:center; gap:7px; min-height:32px; padding:5px 8px; border:1px solid var(--line); border-radius:6px; background:#f8fafc; color:var(--text); font-size:12px; }
+    .column-option input { width:auto; height:auto; margin:0; }
+    .table-wrap { background:#fff; border:1px solid var(--line); border-radius:8px; overflow:auto; max-height:calc(100vh - 260px); position:relative; }
+    table { width:100%; border-collapse:collapse; min-width:980px; }
+    th, td { padding:9px 10px; border-bottom:1px solid var(--line); text-align:center; font-size:13px; white-space:nowrap; }
+    th { position:sticky; top:0; background:#f0f3f7; cursor:pointer; user-select:none; z-index:3; }
+    .freeze-code-name th:nth-child(1), .freeze-code-name td:nth-child(1) { position:sticky; left:0; z-index:2; min-width:88px; width:88px; max-width:88px; overflow:hidden; text-overflow:ellipsis; background:var(--app-bg, #fff); box-shadow:1px 0 0 var(--line); }
+    .freeze-code-name th:nth-child(2), .freeze-code-name td:nth-child(2) { position:sticky; left:88px; z-index:2; min-width:126px; width:126px; max-width:126px; overflow:hidden; text-overflow:ellipsis; background:var(--app-bg, #fff); box-shadow:1px 0 0 var(--line); }
+    .freeze-code-name th:nth-child(1), .freeze-code-name th:nth-child(2) { top:0; z-index:5; background:var(--app-panel, #f0f3f7); }
+    .freeze-code-name.has-select th:nth-child(1), .freeze-code-name.has-select td:nth-child(1) { position:sticky; left:0; z-index:2; min-width:52px; width:52px; max-width:52px; overflow:hidden; background:var(--app-bg, #fff); box-shadow:1px 0 0 var(--line); }
+    .freeze-code-name.has-select th:nth-child(2), .freeze-code-name.has-select td:nth-child(2) { position:sticky; left:52px; z-index:2; min-width:88px; width:88px; max-width:88px; overflow:hidden; text-overflow:ellipsis; background:var(--app-bg, #fff); box-shadow:1px 0 0 var(--line); }
+    .freeze-code-name.has-select th:nth-child(3), .freeze-code-name.has-select td:nth-child(3) { position:sticky; left:140px; z-index:2; min-width:126px; width:126px; max-width:126px; overflow:hidden; text-overflow:ellipsis; background:var(--app-bg, #fff); box-shadow:1px 0 0 var(--line); }
+    .freeze-code-name.has-select th:nth-child(1), .freeze-code-name.has-select th:nth-child(2), .freeze-code-name.has-select th:nth-child(3) { top:0; z-index:5; background:var(--app-panel, #f0f3f7); }
+    .select-cell { cursor:default; }
+    .select-cell input { width:16px; height:16px; cursor:pointer; }
+    .code-cell { color:var(--accent); font-weight:800; cursor:pointer; }
+    .setup-new { color:var(--good); font-weight:800; }
+    .setup-watch { color:var(--warn); font-weight:800; }
+    .cell-good { color:#059669; font-weight:900; }
+    .cell-warn { color:#d97706; font-weight:900; }
+    .cell-bad { color:#dc2626; font-weight:900; }
+    .cell-info { color:#2563eb; font-weight:900; }
+    .probe-pass { color:var(--good); font-weight:800; }
+    .probe-fail { color:var(--bad); font-weight:800; }
+    .ai-review-body { border-top:1px solid var(--line); padding:10px; background:var(--app-bg, #f6f7f9); }
+    .ai-picks { display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:10px; margin-top:10px; }
+    .ai-pick { border:1px solid var(--app-border, var(--line)); border-left:4px solid #2563eb; border-radius:8px; background:var(--app-panel, #fff); color:var(--app-text, var(--text)); padding:12px; box-shadow:0 8px 20px rgba(15,23,42,.08); }
+    .ai-pick h3 { margin:0 0 8px; color:var(--app-text, var(--text)); font-size:15px; line-height:1.35; }
+    .ai-meta { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px; }
+    .ai-badge { display:inline-flex; align-items:center; min-height:24px; padding:0 8px; border-radius:999px; background:rgba(88,166,255,.16); color:var(--app-accent, var(--accent)); font-size:12px; font-weight:800; }
+    .ai-line { margin:7px 0; font-size:13px; line-height:1.6; white-space:normal; color:var(--app-text, var(--text)); }
+    .ai-line b { color:var(--app-text, var(--text)); }
+    .ai-label { display:inline-flex; align-items:center; justify-content:center; min-width:68px; min-height:22px; margin-right:6px; padding:2px 7px; border-radius:5px; color:#fff; font-size:12px; font-weight:900; line-height:1.2; vertical-align:1px; }
+    .ai-label-company { background:#2563eb; }
+    .ai-label-tech { background:#059669; }
+    .ai-label-buy { background:#7c3aed; }
+    .ai-label-message { background:#c2410c; }
+    .ai-label-mainline { background:#0f766e; }
+    .ai-label-risk { background:#dc2626; }
+    .ai-label-watch { background:#d97706; }
+    .ai-extra { display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:10px; margin-top:10px; }
+    .ai-mini-list { border:1px solid var(--app-border, var(--line)); border-radius:8px; background:var(--app-panel, #fff); color:var(--app-text, var(--text)); padding:12px; }
+    .ai-mini-list h3 { margin:0 0 8px; color:var(--app-text, var(--text)); font-size:14px; }
+    .ai-mini-list ul { margin:0; padding-left:18px; }
+    .ai-mini-list li { margin:5px 0; font-size:13px; line-height:1.45; }
+    .ai-raw { margin-top:10px; max-height:260px; }
+    .log { margin-top:12px; background:var(--ink); color:#d7e2f1; border-radius:8px; padding:12px; height:170px; overflow:auto; white-space:pre-wrap; }
+    .modal { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(16,24,40,.45); padding:18px; z-index:10; }
+    .modal.open { display:flex; }
+    .modal-card { width:min(860px, 100%); max-height:88vh; overflow:auto; background:#fff; border-radius:8px; box-shadow:0 18px 60px rgba(16,24,40,.24); border:1px solid var(--line); }
+    .modal-head { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 16px; border-bottom:1px solid var(--line); }
+    .modal-head h2 { margin:0; font-size:16px; }
+    .modal-body { padding:14px 16px 16px; color:#2d3748; line-height:1.7; }
+    .modal-body h3 { margin:14px 0 6px; font-size:15px; color:var(--text); }
+    .modal-body ul { margin:6px 0 0; padding-left:20px; }
+    .modal-body li { margin:4px 0; }
+    .markdown-body { font-size:14px; }
+    .markdown-body h1 { margin:0 0 12px; font-size:22px; line-height:1.25; color:var(--text); }
+    .markdown-body h2 { margin:22px 0 8px; font-size:18px; color:var(--text); border-bottom:1px solid var(--line); padding-bottom:6px; }
+    .markdown-body h3 { margin:16px 0 6px; font-size:15px; color:var(--text); }
+    .markdown-body p { margin:8px 0; }
+    .markdown-body ul, .markdown-body ol { margin:8px 0 8px 20px; padding-left:18px; }
+    .markdown-body li { margin:5px 0; }
+    .markdown-body pre { margin:10px 0; padding:12px; overflow:auto; border-radius:6px; background:#0d1117; color:#d7e2f1; }
+    .markdown-body code { font-family:Consolas, "Courier New", monospace; }
+    .markdown-body table { min-width:0; width:100%; margin:10px 0; border-collapse:collapse; }
+    .markdown-body th, .markdown-body td { white-space:normal; text-align:left; vertical-align:top; }
+    @media (max-width:900px) {
+      .topbar { align-items:flex-start; flex-direction:column; }
+      .header-actions { width:100%; }
+      .strategy-nav { flex:1; width:auto; }
+      .control-sections { grid-template-columns:1fr; }
+      .controls { grid-template-columns:repeat(2, minmax(130px, 1fr)); }
+      .column-grid { grid-template-columns:repeat(2, minmax(120px, 1fr)); }
+      .cards { grid-template-columns:repeat(2, minmax(130px, 1fr)); }
+      .metric.wide { grid-column:span 2; }
+      h1 { font-size:18px; }
+    }
+  </style>
+  <link rel="stylesheet" href="/app-layout.css" />
+</head>
+<body>
+  <header>
+    <div class="topbar">
+      <h1>CANSLIM + RPS策略</h1>
+      <div class="header-actions">
+        <select id="strategyNav" class="strategy-nav" onchange="goStrategy(this)" aria-label="策略切换">
+          <option value="/">大盘总览</option>
+          <option value="/mainline-review">主线复盘策略</option>
+          <option value="/concept-radar">同花顺概念雷达</option>
+          <option value="/first-limit">涨停板策略</option>
+          <option value="/canslim-tao" selected>CANSLIM+RPS策略</option>
+          <option value="/value-fcf">低估值现金流策略</option>
+          <option value="/dividend-low-vol">红利低波防守策略</option>
+          <option value="/stock-search">股票模糊搜索</option>
+          <option value="/realtime-ma">批量实时MA检查</option>
+        </select>
+        <button class="icon-btn" onclick="openHelp()" title="查看说明" aria-label="查看说明">?</button>
+      </div>
+    </div>
+    <details class="section-panel filter-panel" id="filterPanel">
+      <summary>筛选条件 <span class="summary-note">默认收起，点击后分组设置</span></summary>
+      <div class="control-sections">
+      <details class="section-panel">
+        <summary>基础与主线条件 <span class="summary-note">默认收起，点击展开</span></summary>
+        <div class="controls">
+          <div><label>复盘模式</label><select id="reviewMode"><option value="after_close">盘后复盘</option><option value="intraday">盘中实时</option></select></div>
+          <div><label>日期 YYYYMMDD</label><input id="endDate" /></div>
+          <div><label>通道模式</label><select id="channelMode"><option value="all">全部通道</option><option value="canslim" selected>只看CANSLIM</option><option value="tao">只看陶博士</option><option value="both">只看双通道共振</option></select></div>
+          <div><label>展示数量</label><input id="topCount" type="number" value="80" /></div>
+          <div><label>最低总分</label><input id="minScore" type="number" value="60" /></div>
+          <div><label>CANSLIM最低RPS</label><input id="minRps" type="number" value="90" /></div>
+          <label class="check"><input id="mainlineEnabled" type="checkbox" checked /> 行业主线评分</label>
+          <div><label>主线行业口径</label><select id="mainlineIndustryLevel"><option value="sw_l2" selected>申万二级</option><option value="sw_l1">申万一级</option><option value="basic">基础行业</option></select></div>
+          <div><label>主线过滤</label><select id="mainlineFilter"><option value="all" selected>全部股票</option><option value="candidate">主线候选及以上</option><option value="confirmed">仅主线确认</option></select></div>
+          <div><label>最低主线分</label><input id="mainlineMinScore" type="number" step="1" value="60" title="0 表示不按主线分硬过滤" /></div>
+          <div><label>主线权重</label><input id="mainlineWeight" type="number" min="0" max="1" step="0.05" value="0.25" /></div>
+        </div>
+      </details>
+      <details class="section-panel">
+        <summary>CANSLIM与交易条件 <span class="summary-note">财务、流动性和排除项</span></summary>
+        <div class="controls">
+          <div><label>最低成交额亿</label><input id="minAmount" type="number" step="0.5" value="1" /></div>
+          <div><label>市值下限亿</label><input id="minMarketCap" type="number" step="10" value="100" /></div>
+          <div><label>市值上限亿</label><input id="maxMarketCap" type="number" step="10" value="0" title="0 表示不限制上限" /></div>
+          <div><label>实换手下限%</label><input id="minTurnover" type="number" step="0.1" value="0" /></div>
+          <div><label>实换手上限%</label><input id="maxTurnover" type="number" step="0.5" value="30" /></div>
+          <div><label>CANSLIM EPS同比%</label><input id="minEpsYoy" type="number" step="1" value="25" /></div>
+          <div><label>CANSLIM扣非EPS%</label><input id="minDtEpsYoy" type="number" step="1" value="0" /></div>
+          <div><label>CANSLIM净利润%</label><input id="minProfitYoy" type="number" step="1" value="20" /></div>
+          <div><label>CANSLIM营收%</label><input id="minSalesYoy" type="number" step="1" value="20" /></div>
+          <div><label>CANSLIM年度EPS%</label><input id="minAnnualEpsYoy" type="number" step="1" value="20" /></div>
+          <div><label>CANSLIM ROE%</label><input id="minRoe" type="number" step="1" value="5" /></div>
+          <label class="check"><input id="includeFundamental" type="checkbox" checked /> 财务指标</label>
+          <label class="check"><input id="excludeSt" type="checkbox" checked /> 排除ST</label>
+          <label class="check"><input id="excludeStar" type="checkbox" checked /> 排除科创板</label>
+          <label class="check"><input id="excludeChinext" type="checkbox" checked /> 排除创业板</label>
+        </div>
+      </details>
+      <details class="section-panel">
+        <summary>陶博士与机构条件 <span class="summary-note">RPS、新高和机构持仓</span></summary>
+        <div class="controls">
+          <div><label>陶RPS底线</label><input id="taoMinRps" type="number" value="90" /></div>
+          <div><label>陶核心RPS</label><input id="taoCoreRps" type="number" value="96" /></div>
+          <div><label>陶新高位置</label><input id="taoNearHigh" type="number" step="0.01" value="0.85" /></div>
+          <div><label>陶EPS排雷%</label><input id="taoMinEpsYoy" type="number" step="1" value="0" title="0 表示不限制" /></div>
+          <div><label>陶净利润排雷%</label><input id="taoMinProfitYoy" type="number" step="1" value="0" title="0 表示不限制" /></div>
+          <div><label>陶营收排雷%</label><input id="taoMinSalesYoy" type="number" step="1" value="0" title="0 表示不限制" /></div>
+          <div><label>陶ROE排雷%</label><input id="taoMinRoe" type="number" step="1" value="0" title="0 表示不限制" /></div>
+          <label class="check"><input id="taoInstitutionEnabled" type="checkbox" checked /> 陶机构条件</label>
+          <div><label>陶机构模式</label><select id="taoInstitutionMode"><option value="all">基金+北向</option><option value="any" selected>满足任一</option></select></div>
+          <label class="check"><input id="taoFundHoldEnabled" type="checkbox" checked /> 基金持股</label>
+          <div><label>基金持股%</label><input id="taoFundHoldMinRatio" type="number" step="0.1" value="2" /></div>
+          <label class="check"><input id="taoNorthHoldEnabled" type="checkbox" checked /> 北向持股</label>
+          <div><label>北向持股万</label><input id="taoNorthHoldMinValueWan" type="number" step="100" value="3000" /></div>
+          <label class="check"><input id="taoInstitutionMissingPass" type="checkbox" /> 机构缺失不拦截</label>
+        </div>
+      </details>
+      <details class="section-panel">
+        <summary>单股分析与执行 <span class="summary-note">筛选、导出和代码复制</span></summary>
+        <div class="controls">
+          <div><label>单股分析</label><input id="probeQuery" placeholder="代码或名称，如 601336" /></div>
+          <button onclick="runStrategy()">开始筛选</button>
+          <button class="ghost" onclick="runStrategy(true)">分析单股</button>
+          <button class="ghost" id="aiProbeButton" onclick="runProbeAiReview()" disabled>AI分析单股</button>
+          <button class="secondary" onclick="downloadCsv()">导出CSV</button>
+          <button class="ghost" onclick="copyAllCodes()">复制全部代码</button>
+          <button class="ghost" onclick="selectAllRows()">全选</button>
+          <button class="ghost" onclick="clearSelection()">取消全选</button>
+          <label class="check"><input id="aiReviewEnabled" type="checkbox" onchange="toggleAiControls()" /> AI诊股</label>
+          <div><label>OpenAI Token</label><input id="aiApiKey" type="password" autocomplete="off" placeholder="勾选后输入API Key" disabled /></div>
+          <div><label>AI模型</label><input id="aiModel" value="gpt-5.5" disabled /></div>
+          <div><label>AI候选上限</label><input id="aiMaxCandidates" type="number" min="1" max="50" value="50" title="盘中/盘后最多送50只给AI" disabled /></div>
+          <div><label>接口地址</label><input id="aiBaseUrl" value="https://mdkj.lol/v1/responses" disabled /></div>
+          <button class="ghost" id="aiReviewButton" onclick="runAiReview(false)" disabled>AI优选3-5只</button>
+          <button class="ghost" onclick="copyAiReview()">复制AI结论</button>
+        </div>
+      </details>
+      </div>
+    </details>
+    <div id="status" class="status">等待筛选。</div>
+  </header>
+  <main>
+    <details class="section-panel" id="marketPanel" style="margin-bottom:12px;">
+      <summary>市场、财务与主线摘要 <span class="summary-note" id="marketSummary">默认收起，运行后点击展开</span></summary>
+      <div class="cards" id="marketCards" style="padding:10px; margin:0;"></div>
+    </details>
+    <details class="section-panel" id="aiReviewPanel" style="margin-bottom:12px; display:none;" open>
+      <summary>AI诊股优选 <span class="summary-note" id="aiReviewSummary">等待AI复核</span></summary>
+      <div class="ai-review-body">
+        <div class="cards" id="aiReviewCards" style="margin:0;"></div>
+        <div class="ai-picks" id="aiPickGrid"></div>
+        <div class="ai-extra" id="aiReviewExtra"></div>
+      </div>
+    </details>
+    <div class="cards" id="probeCards"></div>
+    <div class="table-wrap" id="probeWrap" style="display:none; max-height:260px;"><table id="probeTable" class="freeze-code-name"></table></div>
+    <div class="toolbar">
+      <button onclick="runStrategy()">开始筛选 / 刷新</button>
+      <button class="ghost" onclick="copyAllCodes()">复制全部代码</button>
+      <button class="ghost" onclick="selectAllRows()">全选</button>
+      <button class="ghost" onclick="clearSelection()">取消全选</button>
+      <button class="ghost" onclick="copyStrongCodes()">复制强势代码</button>
+      <button class="secondary" onclick="downloadCsv()">导出CSV</button>
+      <details class="section-panel column-panel" id="columnPanel">
+        <summary>选择结果列 <span class="summary-note" id="columnSummary"></span></summary>
+        <div style="border-top:1px solid var(--line); padding:10px;">
+          <div class="column-actions">
+            <button class="ghost" onclick="resetVisibleColumns()">恢复默认列</button>
+            <button class="ghost" onclick="showAllColumns()">显示全部列</button>
+          </div>
+          <div class="column-grid" id="columnChoices"></div>
+        </div>
+      </details>
+    </div>
+    <div class="table-wrap keep-mobile-table" data-mobile-cards="off"><table id="resultTable" class="freeze-code-name has-select" data-mobile-cards="off"></table></div>
+    <details class="section-panel" id="logPanel" style="margin-top:12px;">
+      <summary>运行日志 <span class="summary-note">默认收起，排查数据时展开</span></summary>
+      <div class="log" id="logBox" style="margin:0; border:0; border-top:1px solid var(--line); border-radius:0;"></div>
+    </details>
+  </main>
+
+  <div class="modal" id="helpModal" onclick="closeHelpOnBackdrop(event)" aria-hidden="true">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+      <div class="modal-head">
+        <h2 id="helpTitle">CANSLIM + RPS策略说明</h2>
+        <button class="icon-btn" onclick="closeHelp()" title="关闭" aria-label="关闭">x</button>
+      </div>
+      <div class="modal-body markdown-body" id="helpBody">
+        <p>正在加载说明...</p>
+      </div>
+    </div>
+  </div>
+
+  <script src="/global-settings.js"></script>
+  <script src="/app-layout.js"></script>
+  <script src="/backtest.js"></script>
+  <script>
+    const today = new Date();
+    document.getElementById("endDate").value = `${today.getFullYear()}${String(today.getMonth()+1).padStart(2,"0")}${String(today.getDate()).padStart(2,"0")}`;
+    let rows = [];
+    let latestMarket = {};
+    let latestFinancial = {};
+    let latestInstitutional = {};
+    let latestMainline = {};
+    let latestProbe = {};
+    let latestAiReview = {};
+    let sortState = {};
+    let selectedCodes = new Set();
+    const cols = [
+      ["code","代码"],["name","名称"],["stock_type","股票类型"],["industry","行业"],["concepts","产业题材"],["setup","形态"],["channel","通道"],["tao_institution_pass","陶机构"],["score","总分"],
+      ["base_score","原始分"],["mainline_industry","主线行业"],["mainline_state","主线状态"],["mainline_score","主线分"],["industry_rank","行业排名"],["industry_rank_change_5","5日升降"],
+      ["industry_rps_combo","行业RPS"],["industry_rps20","行业RPS20"],["industry_rps60","行业RPS60"],["industry_rps120","行业RPS120"],
+      ["industry_breadth_score","行业广度"],["industry_persistence_score","持续性"],["industry_above_ma20_ratio","站上MA20%"],["industry_above_ma50_ratio","站上MA50%"],["industry_strong_ratio","强股占比%"],["mainline_reason","主线说明"],
+      ["rps_combo","RPS综合"],["rps50","RPS50"],["rps120","RPS120"],["rps250","RPS250"],
+      ["c_score","C"],["a_score","A"],["n_score","N"],["s_score","S"],["l_score","L"],["i_score","I"],["m_score","M"],
+      ["close","收盘"],["pct_chg","涨跌%"],["amount_yi","成交额亿"],["amount_ratio","量能比"],["turnover_rate_f","实换手%"],["market_cap_yi","总市值亿"],
+      ["ret50","50日%"],["ret120","120日%"],["ret250","250日%"],["high_position_250","新高位置"],["ma5","MA5"],["ma10","MA10"],["ma20","MA20"],["distance_ma5","距5日%"],["distance_ma10","距10日%"],["distance_ma20","距20日%"],["distance_ma50","距50日%"],["ma_pullback","均线/买点"],
+      ["ma_stack","均线多头"],["new_high_5","5日新高"],["pocket_pivot","口袋支点"],["fund_hold_ratio","基金持股%"],["fund_hold_period","基金期"],["north_hold_value_wan","北向万"],["north_hold_ratio","北向%"],["north_hold_period","北向期"],["tao_institution_note","机构说明"],["eps_yoy","EPS同比%"],["dt_eps_yoy","扣非EPS同比%"],["basic_eps_yoy","基本EPS同比%"],["q_eps","单季EPS"],["profit_yoy","利润增速%"],["sales_yoy","营收增速%"],["annual_eps_yoy","年度EPS同比%"],["annual_roe","ROE%"],["report_date","报告期"],["finance_status","财务状态"],["finance_note","财务说明"],["stop_hint","风控提示"],["reason","理由"]
+    ];
+    const probeCols = [["label","项目"],["value","当前值"],["op","条件"],["threshold","阈值"],["unit","单位"],["pass","是否通过"]];
+    const defaultVisibleColumnKeys = ["code","name","industry","concepts","setup","score","mainline_industry","mainline_state","close","ma_pullback","distance_ma5","distance_ma10","distance_ma20"];
+    const requiredColumnKeys = new Set(["code","name"]);
+    const columnStorageKey = `canslimVisibleColumns:v2:${window.location.pathname}`;
+    let visibleColumnKeys = loadVisibleColumns();
+    renderColumnPicker();
+
+    function goStrategy(select) {
+      const target = select.value;
+      const current = window.location.pathname === "/index.html" ? "/" : window.location.pathname;
+      if (target && target !== current) {
+        if (window.matchMedia("(max-width: 900px)").matches) {
+          window.location.href = target;
+          return;
+        }
+        window.open(target, "_blank", "noopener");
+      }
+      select.value = current;
+    }
+
+    async function runStrategy(probeOnly=false) {
+      const dataSource = getGlobalDataSourcePayload();
+      if (!dataSource) return;
+      const probeQuery = document.getElementById("probeQuery").value.trim();
+      if (probeOnly && !probeQuery) {
+        alert("请先输入要分析的股票代码或名称");
+        return;
+      }
+      setStatus(probeOnly ? "正在分析单股，仍需读取全市场行情计算 RPS..." : "正在筛选 CANSLIM+RPS 候选池，首次读取会慢一些...");
+      const payload = {
+        ...dataSource,
+        review_mode: document.getElementById("reviewMode").value,
+        end_date: document.getElementById("endDate").value.trim(),
+        lookback_days: 270,
+        canslim_top_count: Number(document.getElementById("topCount").value),
+        canslim_channel_mode: document.getElementById("channelMode").value,
+        canslim_min_score: Number(document.getElementById("minScore").value),
+        canslim_min_rps: Number(document.getElementById("minRps").value),
+        canslim_mainline_enabled: document.getElementById("mainlineEnabled").checked,
+        canslim_mainline_industry_level: document.getElementById("mainlineIndustryLevel").value,
+        canslim_mainline_filter: document.getElementById("mainlineFilter").value,
+        canslim_mainline_min_score: Number(document.getElementById("mainlineMinScore").value),
+        canslim_mainline_weight: Number(document.getElementById("mainlineWeight").value),
+        tao_min_rps: Number(document.getElementById("taoMinRps").value),
+        tao_core_rps: Number(document.getElementById("taoCoreRps").value),
+        tao_near_high_ratio: Number(document.getElementById("taoNearHigh").value),
+        canslim_min_amount_yi: Number(document.getElementById("minAmount").value),
+        canslim_min_market_cap_yi: Number(document.getElementById("minMarketCap").value),
+        canslim_max_market_cap_yi: Number(document.getElementById("maxMarketCap").value),
+        canslim_min_turnover_rate: Number(document.getElementById("minTurnover").value),
+        canslim_max_turnover_rate: Number(document.getElementById("maxTurnover").value),
+        canslim_min_eps_yoy: Number(document.getElementById("minEpsYoy").value),
+        canslim_min_dt_eps_yoy: Number(document.getElementById("minDtEpsYoy").value),
+        canslim_min_profit_yoy: Number(document.getElementById("minProfitYoy").value),
+        canslim_min_sales_yoy: Number(document.getElementById("minSalesYoy").value),
+        canslim_min_annual_eps_yoy: Number(document.getElementById("minAnnualEpsYoy").value),
+        canslim_min_roe: Number(document.getElementById("minRoe").value),
+        tao_min_eps_yoy: Number(document.getElementById("taoMinEpsYoy").value),
+        tao_min_profit_yoy: Number(document.getElementById("taoMinProfitYoy").value),
+        tao_min_sales_yoy: Number(document.getElementById("taoMinSalesYoy").value),
+        tao_min_roe: Number(document.getElementById("taoMinRoe").value),
+        tao_institution_enabled: document.getElementById("taoInstitutionEnabled").checked,
+        tao_institution_mode: document.getElementById("taoInstitutionMode").value,
+        tao_fund_hold_enabled: document.getElementById("taoFundHoldEnabled").checked,
+        tao_fund_hold_min_ratio: Number(document.getElementById("taoFundHoldMinRatio").value),
+        tao_north_hold_enabled: document.getElementById("taoNorthHoldEnabled").checked,
+        tao_north_hold_min_value_wan: Number(document.getElementById("taoNorthHoldMinValueWan").value),
+        tao_institution_missing_pass: document.getElementById("taoInstitutionMissingPass").checked,
+        canslim_include_fundamental: document.getElementById("includeFundamental").checked,
+        canslim_exclude_st: document.getElementById("excludeSt").checked,
+        canslim_exclude_star: document.getElementById("excludeStar").checked,
+        canslim_exclude_chinext: document.getElementById("excludeChinext").checked,
+        canslim_probe_query: probeQuery,
+        canslim_probe_only: Boolean(probeOnly)
+      };
+      try {
+        const res = await fetch("/api/canslim_tao", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload)});
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error || "筛选失败");
+        rows = data.rows || [];
+        selectedCodes.clear();
+        latestAiReview = {};
+        latestMarket = data.market || {};
+        latestFinancial = data.financial || {};
+        latestInstitutional = data.institutional || {};
+        latestMainline = data.mainline || {};
+        latestProbe = data.probe || {};
+        renderMarket();
+        renderProbe();
+        renderAiReview();
+        renderTable();
+        document.getElementById("logBox").textContent = (data.logs || []).join("\n");
+        setStatus(probeOnly ? `单股分析完成，交易日 ${data.trade_date}` : `筛选完成，交易日 ${data.trade_date}，共 ${rows.length} 只`);
+        if (document.getElementById("aiReviewEnabled").checked) {
+          if (probeOnly && latestProbe.found && latestProbe.row) {
+            await runAiReview(true, data.trade_date || payload.end_date, [latestProbe.row], "单股分析");
+          } else if (!probeOnly) {
+            await runAiReview(true, data.trade_date || payload.end_date);
+          }
+        }
+      } catch (err) {
+        setStatus(`筛选失败：${err.message}`, true);
+      }
+    }
+
+    function setStatus(text, bad=false) {
+      const el = document.getElementById("status");
+      el.textContent = text;
+      el.className = bad ? "status bad" : "status";
+    }
+    function renderMarket() {
+      const m = latestMarket;
+      const items = [
+        ["市场方向", m.state || ""],["市场分", m.score ?? ""],["5日等权", m.short_sum ?? ""],["20日等权", m.mid_sum ?? ""],
+        ["上涨比例", m.up_ratio ?? ""],["站上50日", m.above_ma50_ratio ?? ""],["均线趋势", m.ma_trend_ratio ?? ""],
+        ["财务状态", latestFinancial.status || ""],["财务覆盖", latestFinancial.rows ?? ""],
+        ["机构状态", latestInstitutional.status || ""],["机构覆盖", latestInstitutional.rows ?? ""],
+        ["主线确认", latestMainline.confirmed_count ?? ""],["主线候选", latestMainline.candidate_count ?? ""],
+        ["领先行业", (latestMainline.rows || []).slice(0, 5).map(x => `${x.mainline_industry} ${Number(x.mainline_score || 0).toFixed(1)}`).join("；"), true],
+        ["机构说明", latestInstitutional.note || "", true],["操作", m.playbook || "", true]
+      ];
+      document.getElementById("marketCards").innerHTML = items.map(([k,v,wide]) => (
+        `<div class="metric ${wide ? "wide" : ""}"><span>${escapeHtml(k)}</span><strong>${escapeHtml(v)}</strong></div>`
+      )).join("");
+      document.getElementById("marketSummary").textContent = "已更新，点击展开";
+    }
+    function toggleAiControls() {
+      const enabled = document.getElementById("aiReviewEnabled").checked;
+      ["aiApiKey", "aiModel", "aiMaxCandidates", "aiBaseUrl", "aiReviewButton", "aiProbeButton"].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.disabled = !enabled;
+      });
+    }
+    function aiCandidateRows(overrideRows=null) {
+      if (Array.isArray(overrideRows) && overrideRows.length) return overrideRows;
+      const selected = new Set(selectedCurrentCodes());
+      if (selected.size) return rows.filter(row => selected.has(rowCode(row)));
+      return rows;
+    }
+    async function runProbeAiReview() {
+      if (!latestProbe || !latestProbe.found || !latestProbe.row) {
+        await runStrategy(true);
+        return;
+      }
+      await runAiReview(false, "", [latestProbe.row], "单股分析");
+    }
+    async function runAiReview(auto=false, tradeDate="", overrideRows=null, targetLabel="候选股") {
+      if (!document.getElementById("aiReviewEnabled").checked && !auto) {
+        alert("请先勾选 AI诊股。");
+        return;
+      }
+      const apiKey = document.getElementById("aiApiKey").value.trim();
+      if (!apiKey) {
+        setStatus("请先输入 OpenAI Token，再运行 AI诊股。", true);
+        return;
+      }
+      const candidates = aiCandidateRows(overrideRows);
+      if (!candidates.length) {
+        setStatus("暂无候选股可供 AI 分析。", true);
+        return;
+      }
+      const maxCandidates = Math.max(1, Math.min(50, Number(document.getElementById("aiMaxCandidates").value) || 50));
+      const effectiveMax = targetLabel === "单股分析" ? candidates.length : maxCandidates;
+      latestAiReview = {loading:true, message:`AI正在复核${targetLabel}：${Math.min(candidates.length, effectiveMax)} / ${candidates.length} 只...`};
+      renderAiReview();
+      setStatus(`AI正在复核${targetLabel}：${Math.min(candidates.length, effectiveMax)} / ${candidates.length} 只，消息面和盘中实时模式可能等待较久...`);
+      const payload = {
+        openai_api_key: apiKey,
+        openai_model: document.getElementById("aiModel").value.trim(),
+        openai_base_url: document.getElementById("aiBaseUrl").value.trim(),
+        max_ai_candidates: effectiveMax,
+        analysis_target: targetLabel,
+        review_mode: document.getElementById("reviewMode").value,
+        trade_date: tradeDate || document.getElementById("endDate").value.trim(),
+        rows: candidates,
+        market: latestMarket,
+        financial: latestFinancial,
+        institutional: latestInstitutional,
+        mainline: latestMainline
+      };
+      try {
+        const res = await fetch("/api/canslim_ai_review", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload)});
+        const text = await res.text();
+        let data = {};
+        try {
+          data = JSON.parse(text);
+        } catch (_) {
+          throw new Error(text || `本地AI接口返回异常 HTTP ${res.status}`);
+        }
+        if (!data.ok) throw new Error(data.error || "AI诊股失败");
+        latestAiReview = data;
+        renderAiReview();
+        const picks = (data.ai_review?.top_picks || []).length;
+        setStatus(`AI诊股完成，${targetLabel}已返回 ${picks} 条重点结论，分析 ${data.analyzed_count || candidates.length} / ${data.candidate_count || candidates.length} 只。`);
+      } catch (err) {
+        latestAiReview = {error:err.message};
+        renderAiReview();
+        setStatus(`AI诊股失败：${err.message}`, true);
+      }
+    }
+    function renderAiReview() {
+      const panel = document.getElementById("aiReviewPanel");
+      const cards = document.getElementById("aiReviewCards");
+      const picks = document.getElementById("aiPickGrid");
+      const extra = document.getElementById("aiReviewExtra");
+      if (!latestAiReview || !Object.keys(latestAiReview).length) {
+        panel.style.display = "none";
+        cards.innerHTML = "";
+        picks.innerHTML = "";
+        extra.innerHTML = "";
+        return;
+      }
+      panel.style.display = "";
+      if (latestAiReview.loading) {
+        document.getElementById("aiReviewSummary").textContent = "AI复核中";
+        cards.innerHTML = `<div class="metric wide"><span>AI诊股</span><strong>${escapeHtml(latestAiReview.message || "正在分析...")}</strong></div>`;
+        picks.innerHTML = "";
+        extra.innerHTML = "";
+        return;
+      }
+      if (latestAiReview.error) {
+        document.getElementById("aiReviewSummary").textContent = "AI复核失败";
+        cards.innerHTML = `<div class="metric wide"><span>AI诊股</span><strong class="probe-fail">${escapeHtml(latestAiReview.error)}</strong></div>`;
+        picks.innerHTML = "";
+        extra.innerHTML = "";
+        return;
+      }
+      const review = latestAiReview.ai_review || {};
+      const top = Array.isArray(review.top_picks) ? review.top_picks : [];
+      document.getElementById("aiReviewSummary").textContent = top.length ? `优选 ${top.length} 只` : "已返回结果";
+      cards.innerHTML = [
+        ["整体结论", review.summary || "暂无摘要", true],
+        ["优选方法", review.selection_method || "暂无说明", true],
+        ["AI权重", "消息35%｜图形买点30%｜公司/基本面20%｜主线10%｜风险5%", true],
+        ["模型", latestAiReview.model || ""],
+        ["候选数量", `${latestAiReview.analyzed_count || 0}/${latestAiReview.candidate_count || 0}`],
+        ["数据缺口", (review.data_gaps || []).slice(0, 3).join("；") || "未说明", true],
+      ].map(([k,v,wide]) => `<div class="metric ${wide ? "wide" : ""}"><span>${escapeHtml(k)}</span><strong>${escapeHtml(v)}</strong></div>`).join("");
+      picks.innerHTML = top.map(renderAiPick).join("") || (latestAiReview.raw_text ? `<pre class="log ai-raw">${escapeHtml(latestAiReview.raw_text)}</pre>` : "");
+      extra.innerHTML = [
+        renderAiMiniList("候补观察", review.watchlist, item => `${item.code || ""} ${item.name || ""}：${item.reason || ""}；${item.action || ""}`),
+        renderAiMiniList("明确剔除", review.rejected, item => `${item.code || ""} ${item.name || ""}：${item.reason || ""}`),
+        renderAiMiniList("数据缺口", review.data_gaps, item => item),
+      ].filter(Boolean).join("");
+    }
+    function formatAiValue(value) {
+      if (value === null || value === undefined || value === "") return "未说明";
+      if (Array.isArray(value)) return value.map(formatAiValue).join("；");
+      if (typeof value === "object") {
+        return Object.entries(value).map(([key, val]) => `${key}: ${formatAiValue(val)}`).join("；");
+      }
+      return String(value);
+    }
+    function aiLine(label, value, cls) {
+      return `<p class="ai-line"><span class="ai-label ${cls}">${escapeHtml(label)}</span>${escapeHtml(formatAiValue(value))}</p>`;
+    }
+    function renderAiPick(pick) {
+      const profile = pick.company_profile || {};
+      return `<article class="ai-pick">
+        <h3>${escapeHtml(`#${pick.rank || ""} ${pick.code || ""} ${pick.name || ""}`)}</h3>
+        <div class="ai-meta">
+          <span class="ai-badge">AI分 ${escapeHtml(pick.ai_score ?? "")}</span>
+          <span class="ai-badge">${escapeHtml(pick.confidence || "置信度未标注")}</span>
+          <span class="ai-badge">${escapeHtml(pick.action || "观察")}</span>
+        </div>
+        ${aiLine("消息", pick.message_impact || pick.catalyst_view, "ai-label-message")}
+        ${aiLine("图形", pick.technical_view, "ai-label-tech")}
+        ${aiLine("买点", pick.price_ma_view || pick.buy_point_view || pick.watch_levels, "ai-label-buy")}
+        ${aiLine("主营", profile.main_business, "ai-label-company")}
+        ${aiLine("地位", profile.industry_position, "ai-label-company")}
+        ${aiLine("概念", profile.concept_purity, "ai-label-company")}
+        ${aiLine("基本面", pick.fundamental_view, "ai-label-company")}
+        ${aiLine("催化", pick.catalyst_view, "ai-label-message")}
+        ${aiLine("主线", pick.industry_view, "ai-label-mainline")}
+        ${aiLine("风险", pick.risk_view, "ai-label-risk")}
+        ${aiLine("观察", pick.watch_levels, "ai-label-watch")}
+        ${aiLine("理由", pick.reason, "ai-label-tech")}
+      </article>`;
+    }
+    function renderAiMiniList(title, items, formatter) {
+      if (!Array.isArray(items) || !items.length) return "";
+      return `<section class="ai-mini-list"><h3>${escapeHtml(title)}</h3><ul>${items.slice(0, 8).map(item => `<li>${escapeHtml(formatter(item))}</li>`).join("")}</ul></section>`;
+    }
+    async function copyAiReview() {
+      const review = latestAiReview?.ai_review || null;
+      if (!review) {
+        alert("暂无AI结论可复制。");
+        return;
+      }
+      await copyText(JSON.stringify(review, null, 2));
+      setStatus("已复制AI结论JSON。");
+    }
+    function renderTable() {
+      const displayCols = visibleCols();
+      const selectHead = `<th class="select-cell" onclick="event.stopPropagation()"><input id="selectAllRows" type="checkbox" onchange="toggleSelectAll(this.checked)" aria-label="全选当前结果" /></th>`;
+      const head = `<thead><tr>${selectHead}${displayCols.map(c=>`<th onclick="sortTable('${c[0]}')">${escapeHtml(c[1])} ${sortMark(c[0])}</th>`).join("")}<th>操作</th></tr></thead>`;
+      const body = rows.length
+        ? `<tbody>${rows.map((r,i)=>`<tr><td class="select-cell">${renderSelectCell(r)}</td>${displayCols.map(c=>`<td>${renderCell(r, c[0])}</td>`).join("")}<td><button class="mini-btn" onclick="copyRow(rows[${i}], visibleCols())">复制整行</button></td></tr>`).join("")}</tbody>`
+        : `<tbody><tr><td colspan="${displayCols.length + 2}">暂无候选</td></tr></tbody>`;
+      document.getElementById("resultTable").innerHTML = head + body;
+      updateSelectAllState();
+    }
+    function renderProbe() {
+      const cards = document.getElementById("probeCards");
+      const wrap = document.getElementById("probeWrap");
+      if (!latestProbe || !latestProbe.query) {
+        cards.innerHTML = "";
+        wrap.style.display = "none";
+        return;
+      }
+      if (!latestProbe.found) {
+        cards.innerHTML = `<div class="metric wide"><span>单股分析</span><strong class="probe-fail">${escapeHtml(latestProbe.message || "未找到")}</strong></div>`;
+        wrap.style.display = "none";
+        return;
+      }
+      const cls = latestProbe.overall_pass ? "probe-pass" : "probe-fail";
+      cards.innerHTML = [
+        ["单股分析", latestProbe.query],
+        ["结论", latestProbe.summary || "", true],
+        ["是否符合", latestProbe.overall_pass ? "符合" : "不符合"]
+      ].map(([k,v,wide]) => `<div class="metric ${wide ? "wide" : ""}"><span>${escapeHtml(k)}</span><strong class="${k === "是否符合" ? cls : ""}">${escapeHtml(v)}</strong></div>`).join("");
+      const checks = latestProbe.checks || [];
+      const head = `<thead><tr>${probeCols.map(c=>`<th>${escapeHtml(c[1])}</th>`).join("")}<th>操作</th></tr></thead>`;
+      const body = `<tbody>${checks.map((r,i)=>`<tr>${probeCols.map(c=>`<td>${renderProbeCell(r, c[0])}</td>`).join("")}<td><button class="mini-btn" onclick="copyRow((latestProbe.checks || [])[${i}], probeCols)">复制整行</button></td></tr>`).join("")}</tbody>`;
+      const row = latestProbe.row || {};
+      const displayCols = visibleCols();
+      const rowHead = `<thead><tr>${displayCols.map(c=>`<th>${escapeHtml(c[1])}</th>`).join("")}<th>操作</th></tr></thead>`;
+      const rowBody = `<tbody><tr>${displayCols.map(c=>`<td>${renderCell(row, c[0])}</td>`).join("")}<td><button class="mini-btn" onclick="copyRow(latestProbe.row, visibleCols())">复制整行</button></td></tr></tbody>`;
+      document.getElementById("probeTable").innerHTML = rowHead + rowBody + head + body;
+      wrap.style.display = "";
+    }
+    function loadVisibleColumns() {
+      const available = new Set(cols.map(c => c[0]));
+      try {
+        const saved = JSON.parse(localStorage.getItem(columnStorageKey) || "null");
+        if (Array.isArray(saved)) {
+          const valid = saved.filter(key => available.has(key));
+          requiredColumnKeys.forEach(key => {
+            if (!valid.includes(key)) valid.unshift(key);
+          });
+          if (valid.length) return new Set(valid);
+        }
+      } catch (_) {}
+      return new Set(defaultVisibleColumnKeys.filter(key => available.has(key)));
+    }
+    function visibleCols() {
+      return cols.filter(([key]) => visibleColumnKeys.has(key));
+    }
+    function saveVisibleColumns() {
+      try {
+        localStorage.setItem(columnStorageKey, JSON.stringify([...visibleColumnKeys]));
+      } catch (_) {}
+    }
+    function renderColumnPicker() {
+      const choices = document.getElementById("columnChoices");
+      if (!choices) return;
+      choices.innerHTML = cols.map(([key, label]) => {
+        const required = requiredColumnKeys.has(key);
+        const checked = visibleColumnKeys.has(key) ? "checked" : "";
+        const disabled = required ? "disabled" : "";
+        const suffix = required ? "（固定）" : "";
+        return `<label class="column-option"><input type="checkbox" ${checked} ${disabled} onchange="setColumnVisible('${escapeJs(key)}', this.checked)" /> ${escapeHtml(label + suffix)}</label>`;
+      }).join("");
+      document.getElementById("columnSummary").textContent = `已显示 ${visibleCols().length}/${cols.length} 列`;
+    }
+    function setColumnVisible(key, checked) {
+      if (requiredColumnKeys.has(key)) return;
+      if (checked) visibleColumnKeys.add(key);
+      else visibleColumnKeys.delete(key);
+      requiredColumnKeys.forEach(item => visibleColumnKeys.add(item));
+      saveVisibleColumns();
+      renderColumnPicker();
+      renderTable();
+      renderProbe();
+    }
+    function resetVisibleColumns() {
+      visibleColumnKeys = new Set(defaultVisibleColumnKeys.filter(key => cols.some(c => c[0] === key)));
+      requiredColumnKeys.forEach(key => visibleColumnKeys.add(key));
+      saveVisibleColumns();
+      renderColumnPicker();
+      renderTable();
+      renderProbe();
+    }
+    function showAllColumns() {
+      visibleColumnKeys = new Set(cols.map(c => c[0]));
+      saveVisibleColumns();
+      renderColumnPicker();
+      renderTable();
+      renderProbe();
+    }
+    function renderProbeCell(row, key) {
+      const value = key === "pass" ? (row.pass ? "通过" : "未通过") : (row[key] ?? "");
+      const cls = key === "pass" ? (row.pass ? "probe-pass" : "probe-fail") : "";
+      return `<span class="${cls}">${escapeHtml(value)}</span>`;
+    }
+    function renderSelectCell(row) {
+      const code = rowCode(row);
+      const checked = selectedCodes.has(code) ? "checked" : "";
+      return `<input type="checkbox" class="row-select" ${checked} onchange="toggleRowSelection('${escapeJs(code)}', this.checked)" aria-label="选择 ${escapeHtml(code)}" />`;
+    }
+    function renderCell(row, key) {
+      const value = row[key] ?? "";
+      if (key === "code") return `<span class="code-cell" title="点击复制代码" onclick="copyCode('${escapeJs(value)}')">${escapeHtml(value)}</span>`;
+      if (key === "setup") {
+        const cls = value === "新高突破" || value === "口袋支点" ? "setup-new" : "setup-watch";
+        return `<span class="${cls}">${escapeHtml(value)}</span>`;
+      }
+      if (key === "tao_institution_pass") {
+        const ok = value === true || value === "是";
+        return `<span class="${ok ? "probe-pass" : "probe-fail"}">${ok ? "是" : "否"}</span>`;
+      }
+      if (key === "mainline_state") {
+        const cls = value === "主线确认" ? "probe-pass" : (value === "主线候选" ? "setup-watch" : "");
+        return `<span class="${cls}">${escapeHtml(value)}</span>`;
+      }
+      if (key === "ma_pullback") {
+        const text = String(value || "");
+        const cls = text.includes("跌破") ? "cell-bad" : (text.includes("偏离") ? "cell-warn" : (text.includes("回踩") || text.includes("突破") || text.includes("上方") ? "cell-good" : "cell-info"));
+        return `<span class="${cls}" title="${escapeHtml(text)}">${escapeHtml(text)}</span>`;
+      }
+      if (["distance_ma5", "distance_ma10", "distance_ma20", "distance_ma50"].includes(key)) {
+        const num = Number(value);
+        const cls = Number.isFinite(num) && num < 0 ? "cell-bad" : (Number.isFinite(num) && Math.abs(num) <= 5 ? "cell-good" : (Number.isFinite(num) && num <= 12 ? "cell-info" : "cell-warn"));
+        return `<span class="${cls}">${escapeHtml(value)}</span>`;
+      }
+      return escapeHtml(value);
+    }
+    function sortMark(key) {
+      if (sortState.key !== key) return "";
+      return sortState.dir === "asc" ? "▲" : "▼";
+    }
+    function sortTable(key) {
+      const dir = sortState.key === key && sortState.dir === "desc" ? "asc" : "desc";
+      sortState = {key, dir};
+      rows.sort((a, b) => compareCell(a[key], b[key], dir));
+      renderTable();
+    }
+    function compareCell(a, b, dir) {
+      const na = parseFloat(a), nb = parseFloat(b);
+      const result = (!Number.isNaN(na) && !Number.isNaN(nb)) ? na - nb : String(a ?? "").localeCompare(String(b ?? ""), "zh-Hans-CN");
+      return dir === "asc" ? result : -result;
+    }
+    function rowCode(row) {
+      return String(row?.code || "").trim();
+    }
+    function currentCodes() {
+      return [...new Set(rows.map(rowCode).filter(Boolean))];
+    }
+    function selectedCurrentCodes() {
+      const visible = new Set(currentCodes());
+      return [...selectedCodes].filter(code => visible.has(code));
+    }
+    function toggleRowSelection(code, checked) {
+      if (!code) return;
+      if (checked) selectedCodes.add(code);
+      else selectedCodes.delete(code);
+      updateSelectAllState();
+    }
+    function toggleSelectAll(checked) {
+      const codes = currentCodes();
+      if (checked) {
+        codes.forEach(code => selectedCodes.add(code));
+        setStatus(`已全选 ${codes.length} 只股票`);
+      } else {
+        codes.forEach(code => selectedCodes.delete(code));
+        setStatus("已取消全选");
+      }
+      renderTable();
+    }
+    function selectAllRows() {
+      toggleSelectAll(true);
+    }
+    function clearSelection() {
+      selectedCodes.clear();
+      renderTable();
+      setStatus("已取消全选");
+    }
+    function updateSelectAllState() {
+      const checkbox = document.getElementById("selectAllRows");
+      if (!checkbox) return;
+      const codes = currentCodes();
+      const count = codes.filter(code => selectedCodes.has(code)).length;
+      checkbox.checked = codes.length > 0 && count === codes.length;
+      checkbox.indeterminate = count > 0 && count < codes.length;
+    }
+    function getCodes(filterStrong=false) {
+      const selected = filterStrong ? rows.filter(r => Number(r.rps_combo || 0) >= 95 && Number(r.score || 0) >= 72) : rows;
+      return [...new Set(selected.map(r => String(r.code || "").trim()).filter(Boolean))];
+    }
+    async function copyCode(code) {
+      await copyText(code);
+      setStatus(`已复制 ${code}`);
+    }
+    async function copyRow(row, columns) {
+      if (!row) return;
+      const header = columns.map(c => c[1]).join("\t");
+      const line = columns.map(c => String(row[c[0]] ?? "").replace(/\s+/g, " ").trim()).join("\t");
+      await copyText(`${header}\n${line}`);
+      setStatus("已复制整行数据和表头");
+    }
+    async function copyAllCodes() {
+      const codes = currentCodes();
+      if (!codes.length) { alert("暂无代码可复制"); return; }
+      await copyText(codes.join("\n"));
+      setStatus(`已复制 ${codes.length} 个全部代码`);
+    }
+    async function copyStrongCodes() {
+      const codes = getCodes(true);
+      if (!codes.length) { alert("暂无强势代码"); return; }
+      await copyText(codes.join("\n"));
+      setStatus(`已复制 ${codes.length} 个强势代码`);
+    }
+    async function copyText(text) {
+      if (navigator.clipboard && window.isSecureContext) {
+        try {
+          await navigator.clipboard.writeText(text);
+          return;
+        } catch (_) {}
+      }
+      const textarea = document.createElement("textarea");
+      textarea.value = text;
+      textarea.setAttribute("readonly", "");
+      textarea.style.position = "fixed";
+      textarea.style.left = "-9999px";
+      textarea.style.top = "0";
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+      const ok = document.execCommand("copy");
+      textarea.remove();
+      if (!ok) throw new Error("复制失败");
+    }
+    function downloadCsv() {
+      if (!rows.length) { alert("暂无数据"); return; }
+      const displayCols = visibleCols();
+      const csv = [displayCols.map(c => `"${String(c[1] ?? "").replaceAll('"','""')}"`).join(",")]
+        .concat(rows.map(r => displayCols.map(c => `"${String(r[c[0]] ?? "").replaceAll('"','""')}"`).join(",")))
+        .join("\n");
+      const blob = new Blob(["\ufeff" + csv], {type:"text/csv;charset=utf-8"});
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `canslim_rps_${new Date().toISOString().slice(0,10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch]));
+    }
+    function escapeJs(value) {
+      return String(value ?? "").replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+    }
+    async function openHelp() {
+      const modal = document.getElementById("helpModal");
+      modal.classList.add("open");
+      modal.setAttribute("aria-hidden", "false");
+      await loadHelpMarkdown();
+    }
+    async function loadHelpMarkdown() {
+      const body = document.getElementById("helpBody");
+      body.innerHTML = "<p>正在加载说明...</p>";
+      try {
+        const res = await fetch("/docs/canslim-rps.md", {cache:"no-store"});
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const markdown = await res.text();
+        body.innerHTML = renderMarkdown(markdown);
+      } catch (err) {
+        body.innerHTML = `<p class="bad">说明加载失败：${escapeHtml(err.message)}</p>`;
+      }
+    }
+    function renderMarkdown(markdown) {
+      const lines = String(markdown || "").replace(/\r\n/g, "\n").split("\n");
+      const html = [];
+      let listType = "";
+      let inCode = false;
+      let codeLines = [];
+      function closeList() {
+        if (listType) {
+          html.push(`</${listType}>`);
+          listType = "";
+        }
+      }
+      function openList(type) {
+        if (listType !== type) {
+          closeList();
+          html.push(`<${type}>`);
+          listType = type;
+        }
+      }
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (trimmed.startsWith("```")) {
+          if (inCode) {
+            html.push(`<pre><code>${escapeHtml(codeLines.join("\n"))}</code></pre>`);
+            codeLines = [];
+            inCode = false;
+          } else {
+            closeList();
+            inCode = true;
+          }
+          continue;
+        }
+        if (inCode) {
+          codeLines.push(line);
+          continue;
+        }
+        if (!trimmed) {
+          closeList();
+          continue;
+        }
+        const heading = trimmed.match(/^(#{1,3})\s+(.+)$/);
+        if (heading) {
+          closeList();
+          const level = heading[1].length;
+          html.push(`<h${level}>${renderMarkdownInline(heading[2])}</h${level}>`);
+          continue;
+        }
+        const unordered = trimmed.match(/^[-*]\s+(.+)$/);
+        if (unordered) {
+          openList("ul");
+          html.push(`<li>${renderMarkdownInline(unordered[1])}</li>`);
+          continue;
+        }
+        const ordered = trimmed.match(/^\d+\.\s+(.+)$/);
+        if (ordered) {
+          openList("ol");
+          html.push(`<li>${renderMarkdownInline(ordered[1])}</li>`);
+          continue;
+        }
+        closeList();
+        html.push(`<p>${renderMarkdownInline(trimmed)}</p>`);
+      }
+      if (inCode) {
+        html.push(`<pre><code>${escapeHtml(codeLines.join("\n"))}</code></pre>`);
+      }
+      closeList();
+      return html.join("");
+    }
+    function renderMarkdownInline(text) {
+      return escapeHtml(text)
+        .replace(/`([^`]+)`/g, "<code>$1</code>")
+        .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+    }
+    function closeHelp() {
+      const modal = document.getElementById("helpModal");
+      modal.classList.remove("open");
+      modal.setAttribute("aria-hidden", "true");
+    }
+    function closeHelpOnBackdrop(event) {
+      if (event.target.id === "helpModal") closeHelp();
+    }
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape") closeHelp();
+    });
+    initBacktestPanel({
+      strategy: "canslim_tao",
+      getPayload: () => {
+        const dataSource = getGlobalDataSourcePayload();
+        if (!dataSource) return null;
+        return {
+          ...dataSource,
+          review_mode: "after_close",
+          end_date: document.getElementById("endDate").value.trim(),
+          lookback_days: 270,
+          canslim_top_count: Number(document.getElementById("topCount").value),
+          canslim_channel_mode: document.getElementById("channelMode").value,
+          canslim_min_score: Number(document.getElementById("minScore").value),
+          canslim_min_rps: Number(document.getElementById("minRps").value),
+          canslim_mainline_enabled: document.getElementById("mainlineEnabled").checked,
+          canslim_mainline_industry_level: document.getElementById("mainlineIndustryLevel").value,
+          canslim_mainline_filter: document.getElementById("mainlineFilter").value,
+          canslim_mainline_min_score: Number(document.getElementById("mainlineMinScore").value),
+          canslim_mainline_weight: Number(document.getElementById("mainlineWeight").value),
+          tao_min_rps: Number(document.getElementById("taoMinRps").value),
+          tao_core_rps: Number(document.getElementById("taoCoreRps").value),
+          tao_near_high_ratio: Number(document.getElementById("taoNearHigh").value),
+          canslim_min_amount_yi: Number(document.getElementById("minAmount").value),
+          canslim_min_market_cap_yi: Number(document.getElementById("minMarketCap").value),
+          canslim_max_market_cap_yi: Number(document.getElementById("maxMarketCap").value),
+          canslim_min_turnover_rate: Number(document.getElementById("minTurnover").value),
+          canslim_max_turnover_rate: Number(document.getElementById("maxTurnover").value),
+          canslim_min_eps_yoy: Number(document.getElementById("minEpsYoy").value),
+          canslim_min_dt_eps_yoy: Number(document.getElementById("minDtEpsYoy").value),
+          canslim_min_profit_yoy: Number(document.getElementById("minProfitYoy").value),
+          canslim_min_sales_yoy: Number(document.getElementById("minSalesYoy").value),
+          canslim_min_annual_eps_yoy: Number(document.getElementById("minAnnualEpsYoy").value),
+          canslim_min_roe: Number(document.getElementById("minRoe").value),
+          tao_min_eps_yoy: Number(document.getElementById("taoMinEpsYoy").value),
+          tao_min_profit_yoy: Number(document.getElementById("taoMinProfitYoy").value),
+          tao_min_sales_yoy: Number(document.getElementById("taoMinSalesYoy").value),
+          tao_min_roe: Number(document.getElementById("taoMinRoe").value),
+          tao_institution_enabled: document.getElementById("taoInstitutionEnabled").checked,
+          tao_institution_mode: document.getElementById("taoInstitutionMode").value,
+          tao_fund_hold_enabled: document.getElementById("taoFundHoldEnabled").checked,
+          tao_fund_hold_min_ratio: Number(document.getElementById("taoFundHoldMinRatio").value),
+          tao_north_hold_enabled: document.getElementById("taoNorthHoldEnabled").checked,
+          tao_north_hold_min_value_wan: Number(document.getElementById("taoNorthHoldMinValueWan").value),
+          tao_institution_missing_pass: document.getElementById("taoInstitutionMissingPass").checked,
+          canslim_include_fundamental: document.getElementById("includeFundamental").checked,
+          canslim_exclude_st: document.getElementById("excludeSt").checked,
+          canslim_exclude_star: document.getElementById("excludeStar").checked,
+          canslim_exclude_chinext: document.getElementById("excludeChinext").checked,
+          canslim_probe_query: "",
+          canslim_probe_only: false
+        };
+      }
+    });
+    toggleAiControls();
+  </script>
+</body>
+</html>

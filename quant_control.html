@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>量化复盘控制台</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f3f6fb;
+      --panel: #fff;
+      --text: #172033;
+      --muted: #657084;
+      --line: #dbe2ec;
+      --primary: #1769e0;
+      --primary-dark: #1054b8;
+      --danger: #c92a2a;
+      --good: #087f5b;
+      --offline: #98a2b3;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(23, 105, 224, .14), transparent 34rem),
+        var(--bg);
+      font-family: "Microsoft YaHei", "Segoe UI", sans-serif;
+    }
+    main {
+      width: min(720px, 100%);
+      padding: 30px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--panel);
+      box-shadow: 0 18px 48px rgba(29, 50, 84, .12);
+    }
+    h1 { margin: 0 0 8px; font-size: 28px; }
+    .intro { margin: 0; color: var(--muted); line-height: 1.7; }
+    .status-card {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 26px 0 20px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #f8fafc;
+    }
+    .dot {
+      width: 12px;
+      height: 12px;
+      flex: 0 0 auto;
+      border-radius: 50%;
+      background: var(--offline);
+      box-shadow: 0 0 0 5px rgba(152, 162, 179, .14);
+    }
+    .dot.running {
+      background: var(--good);
+      box-shadow: 0 0 0 5px rgba(8, 127, 91, .14);
+    }
+    .status-label { font-weight: 800; }
+    .status-detail { margin-top: 3px; color: var(--muted); font-size: 13px; }
+    .actions {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+    button, .link-button {
+      min-height: 46px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 0;
+      border-radius: 10px;
+      padding: 0 16px;
+      font: inherit;
+      font-weight: 800;
+      text-decoration: none;
+      cursor: pointer;
+      transition: transform .15s ease, background .15s ease, opacity .15s ease;
+    }
+    button:hover, .link-button:hover { transform: translateY(-1px); }
+    button:disabled { cursor: wait; opacity: .58; transform: none; }
+    .primary { color: #fff; background: var(--primary); }
+    .primary:hover { background: var(--primary-dark); }
+    .secondary { color: var(--primary-dark); background: #e9f1fd; }
+    .danger { color: var(--danger); background: #fff0f0; }
+    .open { color: var(--text); border: 1px solid var(--line); background: #fff; }
+    .message {
+      min-height: 24px;
+      margin: 18px 0 0;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+    .message.error { color: var(--danger); font-weight: 700; }
+    .hint {
+      margin: 20px 0 0;
+      padding-top: 18px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.7;
+    }
+    code { color: var(--text); }
+    @media (max-width: 600px) {
+      main { padding: 22px; }
+      h1 { font-size: 23px; }
+      .actions { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>量化复盘控制台</h1>
+    <p class="intro">这是一个本地 HTML 页面。需要时打开它，即可启动、关闭或进入复盘网页。</p>
+
+    <section class="status-card" aria-live="polite">
+      <span id="statusDot" class="dot"></span>
+      <div>
+        <div id="statusLabel" class="status-label">正在检查后台控制服务...</div>
+        <div id="statusDetail" class="status-detail">复盘地址：http://127.0.0.1:8765/</div>
+      </div>
+    </section>
+
+    <div class="actions">
+      <button class="primary" data-action onclick="startReview(true)">启动并打开复盘</button>
+      <button class="secondary" data-action onclick="startReview(false)">仅启动复盘</button>
+      <button class="danger" data-action onclick="stopReview()">停止复盘</button>
+      <a class="link-button open" href="http://127.0.0.1:8765/" target="quant-review">直接打开复盘</a>
+    </div>
+
+    <p id="message" class="message">页面会自动刷新服务状态。</p>
+    <p class="hint">
+      后台控制程序会在 Windows 登录后静默启动，但不会自动打开浏览器。
+      本页面文件位于 <code>D:\quant\quant_control.html</code>。
+    </p>
+  </main>
+
+  <script>
+    const controlApiUrl = "http://127.0.0.1:8764";
+    const controlToken = "quant-local-static-control-v1-7f36c982";
+    const reviewUrl = "http://127.0.0.1:8765/";
+    let busy = false;
+
+    function setBusy(value) {
+      busy = value;
+      document.querySelectorAll("[data-action]").forEach(button => {
+        button.disabled = value;
+      });
+    }
+
+    function renderStatus(data) {
+      const running = Boolean(data.running);
+      document.getElementById("statusDot").classList.toggle("running", running);
+      document.getElementById("statusLabel").textContent = running
+        ? "复盘服务正在运行"
+        : "复盘服务已停止";
+      document.getElementById("statusDetail").textContent = running
+        ? `可以访问：${reviewUrl}`
+        : "点击“启动并打开复盘”即可开始";
+    }
+
+    function showMessage(text, isError = false) {
+      const element = document.getElementById("message");
+      element.textContent = text;
+      element.classList.toggle("error", isError);
+    }
+
+    async function api(path, options = {}) {
+      const response = await fetch(`${controlApiUrl}${path}`, {
+        ...options,
+        headers: {
+          "X-Control-Token": controlToken,
+          ...(options.headers || {})
+        }
+      });
+      const data = await response.json();
+      if (!response.ok || !data.ok) {
+        throw new Error(data.error || "操作失败");
+      }
+      return data;
+    }
+
+    async function refreshStatus() {
+      if (busy) return;
+      try {
+        renderStatus(await api("/api/status"));
+        showMessage("页面会自动刷新服务状态。");
+      } catch (error) {
+        document.getElementById("statusDot").classList.remove("running");
+        document.getElementById("statusLabel").textContent = "后台控制服务未连接";
+        document.getElementById("statusDetail").textContent = "请确认 Windows 登录启动项已运行";
+        showMessage(`无法连接本机控制服务：${error.message}`, true);
+      }
+    }
+
+    async function startReview(openAfterStart) {
+      const reviewWindow = openAfterStart ? window.open("about:blank", "quant-review") : null;
+      setBusy(true);
+      showMessage("正在启动复盘服务...");
+      try {
+        const data = await api("/api/start", {method: "POST"});
+        renderStatus(data);
+        showMessage(data.message);
+        if (reviewWindow) reviewWindow.location.replace(reviewUrl);
+      } catch (error) {
+        if (reviewWindow) reviewWindow.close();
+        showMessage(`启动失败：${error.message}`, true);
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    async function stopReview() {
+      setBusy(true);
+      showMessage("正在停止复盘服务...");
+      try {
+        const data = await api("/api/stop", {method: "POST"});
+        renderStatus(data);
+        showMessage(data.message);
+      } catch (error) {
+        showMessage(`停止失败：${error.message}`, true);
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    refreshStatus();
+    window.setInterval(refreshStatus, 2000);
+  </script>
+</body>
+</html>

@@ -1,0 +1,1192 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>同花顺概念雷达</title>
+  <style>
+    :root { --bg:#0d1117; --panel:#161b22; --panel2:#111820; --text:#e6edf3; --muted:#8b949e; --line:#30363d; --accent:#58a6ff; --good:#3fb950; --warn:#d29922; --bad:#f85149; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:"Microsoft YaHei", Arial, sans-serif; color:var(--text); background:var(--bg); }
+    header { background:rgba(13,17,23,.96); border-bottom:1px solid var(--line); padding:14px 18px; }
+    .topbar { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; }
+    h1 { margin:0; font-size:20px; line-height:1.25; }
+    h2 { margin:16px 0 10px; font-size:16px; }
+    .header-actions { display:flex; align-items:center; gap:8px; }
+    .strategy-nav { width:220px; }
+    .toolbar { display:grid; grid-template-columns:minmax(140px, 180px) minmax(230px, 320px) minmax(90px, 120px) repeat(5, max-content); gap:8px; align-items:end; }
+    label { display:block; margin:0 0 4px; color:var(--muted); font-size:12px; }
+    input, select, textarea { width:100%; min-height:34px; border:1px solid var(--line); border-radius:6px; padding:0 8px; background:var(--panel2); color:var(--text); }
+    textarea { min-height:64px; padding:8px; resize:vertical; }
+    button { height:34px; border:1px solid var(--line); border-radius:6px; background:#1f6feb; color:#fff; font-weight:800; cursor:pointer; padding:0 12px; }
+    button.secondary { background:#21262d; color:var(--text); }
+    button.ghost { background:var(--panel2); color:var(--accent); }
+    button.mini-btn { height:26px; padding:0 8px; font-size:12px; background:var(--panel2); color:var(--accent); }
+    button.danger { background:#7f1d1d; color:#fff; }
+    .status { margin:8px 0 0; color:var(--muted); font-size:13px; }
+    .bad { color:var(--bad); font-weight:800; }
+    main { padding:14px 18px 78px; }
+    .cards { display:grid; grid-template-columns:repeat(6, minmax(130px, 1fr)); gap:10px; margin:0 0 12px; }
+    .metric { min-height:76px; border:1px solid var(--line); border-radius:8px; padding:11px; background:var(--panel); }
+    .metric span { display:block; margin-bottom:6px; color:var(--muted); font-size:12px; }
+    .metric strong { display:block; font-size:18px; line-height:1.35; overflow-wrap:anywhere; }
+    .metric.wide { grid-column:span 2; }
+    .split { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:0 0 12px; }
+    .panel { border:1px solid var(--line); border-radius:8px; background:var(--panel); overflow:hidden; }
+    .panel-head { display:flex; align-items:center; justify-content:space-between; gap:10px; min-height:40px; padding:8px 10px; border-bottom:1px solid var(--line); }
+    .panel-head h2 { margin:0; }
+    .section-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin:16px 0 10px; }
+    .section-head h2 { margin:0; }
+    .table-actions { display:flex; align-items:center; justify-content:flex-end; gap:8px; flex-wrap:wrap; }
+    .table-wrap { overflow:auto; max-height:calc(50vh - 86px); border:1px solid var(--line); border-radius:8px; background:var(--panel); }
+    .table-wrap.tight { max-height:260px; border:0; border-radius:0; }
+    .table-wrap.tight table { min-width:720px; }
+    table { width:100%; min-width:1180px; border-collapse:collapse; }
+    th, td { padding:8px 9px; border-bottom:1px solid var(--line); text-align:center; white-space:nowrap; font-size:13px; }
+    th { position:sticky; top:0; z-index:3; background:#1f2630; cursor:pointer; user-select:none; }
+    td button + button { margin-left:6px; }
+    tr.active-row td { background:rgba(88,166,255,.12); }
+    tr:hover td { background:rgba(88,166,255,.08); }
+    .freeze th:nth-child(1), .freeze td:nth-child(1) { position:sticky; left:0; z-index:2; min-width:38px; background:var(--panel); box-shadow:1px 0 0 var(--line); }
+    .freeze th:nth-child(2), .freeze td:nth-child(2) { position:sticky; left:38px; z-index:2; min-width:92px; background:var(--panel); box-shadow:1px 0 0 var(--line); }
+    .freeze th:nth-child(3), .freeze td:nth-child(3) { position:sticky; left:130px; z-index:2; min-width:120px; background:var(--panel); box-shadow:1px 0 0 var(--line); }
+    .freeze th:nth-child(1), .freeze th:nth-child(2), .freeze th:nth-child(3) { z-index:5; background:#1f2630; }
+    .select-cell { width:38px; min-width:38px; }
+    .select-cell input { width:auto; min-height:auto; }
+    .code-cell { color:var(--accent); font-weight:900; cursor:pointer; }
+    .state-good { color:var(--good); font-weight:900; }
+    .state-warn { color:var(--warn); font-weight:900; }
+    .state-bad { color:var(--bad); font-weight:900; }
+    .num-good { color:#ff6b6b; font-weight:900; }
+    .num-bad { color:#3fb950; font-weight:900; }
+    .risk { color:var(--warn); font-weight:800; }
+    .log { background:#080c12; color:#d7e2f1; padding:12px; min-height:120px; max-height:240px; overflow:auto; white-space:pre-wrap; }
+    .modal { position:fixed; inset:0; display:none; align-items:center; justify-content:center; padding:18px; background:rgba(0,0,0,.52); z-index:60; }
+    .modal.open { display:flex; }
+    .modal-card { width:min(980px, 100%); max-height:88vh; display:flex; flex-direction:column; border:1px solid var(--line); border-radius:8px; background:var(--panel); box-shadow:0 22px 70px rgba(0,0,0,.45); overflow:hidden; }
+    .modal-head { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px 14px; border-bottom:1px solid var(--line); }
+    .modal-head h2 { margin:0; }
+    .modal-body { padding:12px 14px; overflow:auto; }
+    .modal-actions { display:flex; justify-content:flex-end; gap:8px; padding:10px 14px; border-top:1px solid var(--line); }
+    .table-modal-card { width:min(1280px, 100%); height:92vh; max-height:92vh; }
+    .detail-grid { display:grid; grid-template-columns:repeat(2, minmax(220px, 1fr)); gap:10px; }
+    .detail-item { border:1px solid var(--line); border-radius:8px; padding:10px; background:var(--panel2); }
+    .detail-item span { display:block; margin-bottom:5px; color:var(--muted); font-size:12px; }
+    .detail-item strong { display:block; line-height:1.55; white-space:normal; overflow-wrap:anywhere; }
+    .tabs { display:flex; flex-wrap:wrap; gap:8px; margin:0 0 12px; }
+    .tab { height:32px; border:1px solid var(--line); border-radius:6px; background:var(--panel2); color:var(--text); padding:0 10px; font-weight:800; cursor:pointer; }
+    .tab.active { color:var(--accent); border-color:var(--accent); }
+    .tab-pane { display:none; }
+    .tab-pane.active { display:block; }
+    .form-grid { display:grid; grid-template-columns:repeat(4, minmax(150px, 1fr)); gap:10px; }
+    .check { min-height:34px; display:flex; align-items:center; gap:8px; border:1px solid var(--line); border-radius:6px; padding:0 8px; background:var(--panel2); color:var(--text); font-size:13px; }
+    .check input { width:auto; min-height:auto; margin:0; }
+    .column-grid { display:grid; grid-template-columns:repeat(5, minmax(130px, 1fr)); gap:8px; }
+    .column-option { display:flex; align-items:center; gap:7px; min-height:32px; padding:5px 8px; border:1px solid var(--line); border-radius:6px; background:var(--panel2); font-size:12px; }
+    .column-option input { width:auto; min-height:auto; margin:0; }
+    .drawer-backdrop { position:fixed; inset:0; display:none; background:rgba(0,0,0,.35); z-index:48; }
+    .drawer-backdrop.open { display:block; }
+    .basket-drawer { position:fixed; top:0; right:0; bottom:0; width:min(720px, 94vw); transform:translateX(105%); transition:transform .18s ease; z-index:50; border-left:1px solid var(--line); background:var(--bg); box-shadow:-20px 0 60px rgba(0,0,0,.35); display:flex; flex-direction:column; }
+    .basket-drawer.open { transform:translateX(0); }
+    .basket-head { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px 14px; border-bottom:1px solid var(--line); background:var(--panel); }
+    .basket-head h2 { margin:0; }
+    .basket-tools { display:grid; grid-template-columns:1fr 1fr repeat(4, max-content); gap:8px; padding:10px; border-bottom:1px solid var(--line); background:var(--panel); }
+    .basket-body { flex:1; overflow:auto; padding:10px; }
+    .ai-review-body { padding:10px; border-top:1px solid var(--line); background:var(--bg); }
+    .ai-picks { display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:10px; }
+    .ai-pick { border:1px solid var(--line); border-left:4px solid var(--accent); border-radius:8px; background:var(--panel); padding:12px; }
+    .ai-pick h3 { margin:0 0 8px; font-size:15px; }
+    .ai-line { margin:7px 0; line-height:1.6; font-size:13px; white-space:normal; }
+    .ai-label { display:inline-flex; min-width:58px; justify-content:center; margin-right:6px; padding:2px 7px; border-radius:5px; color:#fff; font-weight:900; font-size:12px; }
+    .l-company { background:#2563eb; } .l-news { background:#c2410c; } .l-tech { background:#059669; } .l-risk { background:#dc2626; } .l-watch { background:#d97706; }
+    .mobile-bottom { position:fixed; left:0; right:0; bottom:0; z-index:45; display:none; grid-template-columns:1fr repeat(3, max-content); gap:8px; align-items:center; padding:8px 10px calc(8px + env(safe-area-inset-bottom)); border-top:1px solid var(--line); background:rgba(13,17,23,.96); }
+    .mobile-bottom span { color:var(--muted); font-size:13px; }
+    @media (max-width:1100px) {
+      .toolbar { grid-template-columns:repeat(4, minmax(120px, 1fr)); }
+      .split { grid-template-columns:1fr; }
+      .cards { grid-template-columns:repeat(3, minmax(120px, 1fr)); }
+      .form-grid { grid-template-columns:repeat(2, minmax(130px, 1fr)); }
+      .column-grid { grid-template-columns:repeat(3, minmax(120px, 1fr)); }
+    }
+    @media (max-width:720px) {
+      header { padding:10px; }
+      .topbar { align-items:flex-start; flex-direction:column; margin-bottom:8px; }
+      .header-actions { width:100%; }
+      .strategy-nav { flex:1; width:auto; }
+      .toolbar { grid-template-columns:repeat(2, minmax(0, 1fr)); gap:7px; }
+      .toolbar button { padding:0 8px; }
+      .section-head { align-items:flex-start; flex-direction:column; }
+      .table-actions { justify-content:flex-start; }
+      main { padding:10px 10px 76px; }
+      h1 { font-size:18px; }
+      h2 { font-size:15px; }
+      .cards { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+      .metric.wide { grid-column:span 2; }
+      .table-wrap { max-height:52vh; }
+      table { min-width:760px; }
+      th, td { padding:7px 8px; font-size:12px; }
+      .freeze th:nth-child(1), .freeze td:nth-child(1) { min-width:34px; }
+      .freeze th:nth-child(2), .freeze td:nth-child(2) { left:34px; min-width:78px; }
+      .freeze th:nth-child(3), .freeze td:nth-child(3) { left:112px; min-width:92px; }
+      .modal { align-items:stretch; padding:0; }
+      .modal-card { width:100%; max-height:none; height:100%; border-radius:0; }
+      .form-grid { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+      .column-grid { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+      .basket-drawer { width:100%; top:12vh; border-top:1px solid var(--line); border-left:0; border-radius:10px 10px 0 0; }
+      .basket-tools { grid-template-columns:1fr 1fr; }
+      .detail-grid { grid-template-columns:1fr; }
+      .mobile-bottom { display:grid; }
+    }
+  </style>
+  <link rel="stylesheet" href="/app-layout.css" />
+</head>
+<body>
+  <header>
+    <div class="topbar">
+      <h1>同花顺概念雷达</h1>
+      <div class="header-actions">
+        <select id="strategyNav" class="strategy-nav" onchange="goStrategy(this)" aria-label="策略切换">
+          <option value="/">大盘总览</option>
+          <option value="/mainline-review">主线复盘策略</option>
+          <option value="/concept-radar" selected>同花顺概念雷达</option>
+          <option value="/short-mainline">短线主线稳定爆发</option>
+          <option value="/canslim-tao">CANSLIM+RPS策略</option>
+          <option value="/canslim-early">CANSLIM早期防钝化</option>
+          <option value="/first-wave">第一波启动策略</option>
+          <option value="/first-limit">涨停板策略</option>
+          <option value="/price-code-low">低价暗语新低策略</option>
+          <option value="/value-fcf">低估值现金流策略</option>
+          <option value="/dividend-low-vol">红利低波防守策略</option>
+          <option value="/industry-market-cap-rank">市场排名工具</option>
+          <option value="/stock-search">股票模糊搜索</option>
+          <option value="/realtime-ma">批量实时MA检查</option>
+        </select>
+      </div>
+    </div>
+    <div id="filterPanel" class="toolbar controls">
+      <div><label>日期</label><input id="endDate" /></div>
+      <div><label>排序口径</label><select id="sortField">
+        <optgroup label="涨幅排行">
+          <option value="pct_chg">当日涨幅</option>
+          <option value="ret2">2日涨幅</option>
+          <option value="ret5">5日涨幅</option>
+          <option value="ret10" selected>10日涨幅</option>
+          <option value="ret20">20日涨幅</option>
+          <option value="ret30">30日涨幅</option>
+          <option value="ret60">60日涨幅</option>
+        </optgroup>
+        <optgroup label="资金/广度">
+          <option value="net_amount_yi">资金净额</option>
+          <option value="strong_stock_count">强势股数</option>
+          <option value="above_ma20_ratio">站上MA20比例</option>
+          <option value="up_count">上涨家数</option>
+          <option value="lead_stock_pct">领涨股涨幅</option>
+        </optgroup>
+        <optgroup label="配置评分">
+          <option value="concept_score">综合分（需启用评分）</option>
+        </optgroup>
+      </select></div>
+      <div><label>显示</label><input id="topCount" type="number" value="80" /></div>
+      <button onclick="runRadar()">刷新排行</button>
+      <button class="ghost" onclick="openColumnModal()">列设置</button>
+      <button class="ghost" onclick="openParamModal()">更多参数</button>
+      <button class="secondary" onclick="openBasket()">自选池 <span id="basketCountBadge">0</span></button>
+      <button class="ghost" onclick="downloadBoardsCsv()">导出概念</button>
+    </div>
+    <div id="status" class="status">等待刷新。默认只做客观排行，不启用评分和强过滤。</div>
+  </header>
+
+  <main>
+    <div class="cards" id="summaryCards"></div>
+
+    <div class="split">
+      <section class="panel">
+        <div class="panel-head">
+          <h2>推荐观察板块</h2>
+          <div class="table-actions">
+            <button class="mini-btn" onclick="copyRecommendBoards()">复制</button>
+            <button class="mini-btn" onclick="openTableModal('recommendBoards')">全屏</button>
+          </div>
+        </div>
+        <div class="table-wrap tight keep-mobile-table"><table id="recommendBoardsTable"></table></div>
+      </section>
+      <section class="panel">
+        <div class="panel-head">
+          <h2>推荐观察个股</h2>
+          <div class="table-actions">
+            <button class="mini-btn" onclick="addRecommendStocks()">加入自选</button>
+            <button class="mini-btn" onclick="openTableModal('recommendStocks')">全屏</button>
+          </div>
+        </div>
+        <div class="table-wrap tight keep-mobile-table"><table id="recommendStocksTable"></table></div>
+      </section>
+    </div>
+
+    <div class="section-head">
+      <h2>概念排行</h2>
+      <div class="table-actions">
+        <button class="mini-btn" onclick="addSelectedBoardsStrongStocks()">勾选概念强股入自选</button>
+        <button class="mini-btn" onclick="openTableModal('boards')">全屏</button>
+      </div>
+    </div>
+    <div class="table-wrap keep-mobile-table"><table id="boardsTable" class="freeze"></table></div>
+
+    <div class="panel" style="margin-top:12px;">
+      <div class="panel-head">
+        <h2 id="stockTitle">成分股明细</h2>
+        <div>
+          <button class="mini-btn" onclick="addSelectedConceptStocks()">当前概念强股入自选</button>
+          <button class="mini-btn" onclick="downloadStocksCsv()">导出成分股</button>
+          <button class="mini-btn" onclick="openTableModal('stocks')">全屏</button>
+        </div>
+      </div>
+      <div class="table-wrap keep-mobile-table" style="border:0; border-radius:0;"><table id="stocksTable" class="freeze"></table></div>
+    </div>
+
+    <section class="panel" id="aiPanel" style="margin-top:12px; display:none;">
+      <div class="panel-head">
+        <h2>AI自选池研究</h2>
+        <button class="mini-btn" onclick="copyAiReview()">复制AI结论</button>
+      </div>
+      <div class="ai-review-body">
+        <div class="cards" id="aiCards"></div>
+        <div class="ai-picks" id="aiPicks"></div>
+      </div>
+    </section>
+
+    <section class="panel" style="margin-top:12px;">
+      <div class="panel-head"><h2>运行日志</h2><span class="status">排查接口、缓存和交易日时看这里</span></div>
+      <div class="log" id="logBox"></div>
+    </section>
+  </main>
+
+  <div class="mobile-bottom">
+    <span id="mobileBasketCount">自选 0 只</span>
+    <button class="mini-btn" onclick="copyBasketCodes()">复制</button>
+    <button class="mini-btn" onclick="runBasketAi()">AI</button>
+    <button class="mini-btn" onclick="openBasket()">打开</button>
+  </div>
+
+  <div class="modal" id="tableModal" aria-hidden="true">
+    <div class="modal-card table-modal-card" role="dialog" aria-modal="true">
+      <div class="modal-head">
+        <h2 id="tableModalTitle">表格全屏</h2>
+        <button class="mini-btn" onclick="closeTableModal()">关闭</button>
+      </div>
+      <div class="modal-body">
+        <div class="table-wrap keep-mobile-table" style="max-height:none;"><table id="tableModalTable" class="freeze"></table></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="detailModal" aria-hidden="true">
+    <div class="modal-card" role="dialog" aria-modal="true">
+      <div class="modal-head">
+        <h2 id="detailModalTitle">详情</h2>
+        <button class="mini-btn" onclick="closeDetailModal()">关闭</button>
+      </div>
+      <div class="modal-body">
+        <div id="detailModalBody" class="detail-grid"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="paramModal" aria-hidden="true">
+    <div class="modal-card" role="dialog" aria-modal="true">
+      <div class="modal-head"><h2>更多参数</h2><button class="mini-btn" onclick="closeParamModal()">关闭</button></div>
+      <div class="modal-body">
+        <div class="tabs" id="paramTabs"></div>
+        <div class="tab-pane active" data-pane="base">
+          <div class="form-grid">
+            <div><label>关键词</label><input id="keyword" placeholder="如 AI,机器人；空为全部" /></div>
+            <div><label>成分少标记阈值</label><input id="memberWarn" type="number" value="8" /></div>
+            <div><label>每概念最多成分股</label><input id="stockLimitPerBoard" type="number" value="120" /></div>
+            <div><label>推荐数量</label><input id="recommendCount" type="number" value="8" /></div>
+            <label class="check"><input id="excludeSt" type="checkbox" /> 隐藏ST</label>
+            <label class="check"><input id="excludeStar" type="checkbox" /> 隐藏科创板</label>
+            <label class="check"><input id="excludeChinext" type="checkbox" /> 隐藏创业板</label>
+            <label class="check"><input id="excludeBj" type="checkbox" /> 隐藏北交所</label>
+          </div>
+        </div>
+        <div class="tab-pane" data-pane="risk">
+          <div class="form-grid">
+            <div><label>5日过热%</label><input id="overheatRet5" type="number" value="15" /></div>
+            <div><label>10日过热%</label><input id="overheatRet10" type="number" value="28" /></div>
+            <div><label>距MA20过热%</label><input id="overheatDistanceMa20" type="number" value="15" /></div>
+            <div><label>站上MA20不足%</label><input id="lowBreadthMa20" type="number" value="45" /></div>
+          </div>
+        </div>
+        <div class="tab-pane" data-pane="score">
+          <div class="form-grid">
+            <label class="check"><input id="scoreEnabled" type="checkbox" onchange="updateScoreHint()" /> 启用综合评分</label>
+            <div><label>趋势权重</label><input id="weightTrend" type="number" value="0" /></div>
+            <div><label>站稳权重</label><input id="weightStability" type="number" value="0" /></div>
+            <div><label>广度权重</label><input id="weightBreadth" type="number" value="0" /></div>
+            <div><label>资金权重</label><input id="weightMoney" type="number" value="0" /></div>
+            <div><label>龙头权重</label><input id="weightLeader" type="number" value="0" /></div>
+            <div><label>持续性权重</label><input id="weightPersistence" type="number" value="0" /></div>
+            <div><label>财务质量权重</label><input id="weightCanslim" type="number" value="0" /></div>
+            <div><label>风险扣分权重</label><input id="weightRisk" type="number" value="0" /></div>
+          </div>
+          <p id="scoreHint" class="status">默认关闭评分，权重为0；开启后才参与概念分。</p>
+          <button class="ghost" onclick="applyScorePreset()">套用复盘权重预设</button>
+        </div>
+        <div class="tab-pane" data-pane="canslim">
+          <div class="form-grid">
+            <div><label>财务质量模式</label><select id="canslimMode"><option value="off" selected>关闭</option><option value="display">仅显示</option><option value="bonus">加分</option><option value="mark">标记</option><option value="filter">硬过滤</option></select></div>
+            <label class="check"><input id="includeFundamental" type="checkbox" checked /> 读取财务</label>
+            <div><label>EPS同比 ≥ %</label><input id="minEpsYoy" type="number" value="25" /></div>
+            <div><label>扣非EPS同比 ≥ %</label><input id="minDtEpsYoy" type="number" value="0" /></div>
+            <div><label>净利同比 ≥ %</label><input id="minProfitYoy" type="number" value="20" /></div>
+            <div><label>营收同比 ≥ %</label><input id="minSalesYoy" type="number" value="20" /></div>
+            <div><label>年度EPS同比 ≥ %</label><input id="minAnnualEpsYoy" type="number" value="20" /></div>
+            <div><label>ROE ≥ %</label><input id="minRoe" type="number" value="5" /></div>
+          </div>
+          <p class="status">这里只使用CANSLIM里的财务成长质量，不再使用RPS、新高、成交额、换手等完整CANSLIM条件。</p>
+        </div>
+        <div class="tab-pane" data-pane="ai">
+          <div class="form-grid">
+            <div><label>OpenAI Token</label><input id="aiApiKey" type="password" autocomplete="off" /></div>
+            <div><label>AI模型</label><input id="aiModel" value="gpt-5.5" /></div>
+            <div><label>接口地址</label><input id="aiBaseUrl" value="https://mdkj.lol/v1/responses" /></div>
+            <div><label>AI候选上限</label><input id="aiMaxCandidates" type="number" min="1" max="50" value="30" /></div>
+          </div>
+          <p class="status">AI只用于自选池研究，主要分析新闻、主营、公司地位和概念纯度，不参与默认排行。</p>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="ghost" onclick="resetParams()">重置参数</button>
+        <button onclick="saveParams(); closeParamModal();">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="columnModal" aria-hidden="true">
+    <div class="modal-card" role="dialog" aria-modal="true">
+      <div class="modal-head"><h2>列设置</h2><button class="mini-btn" onclick="closeColumnModal()">关闭</button></div>
+      <div class="modal-body">
+        <div class="tabs" id="columnTabs"></div>
+        <div class="tabs">
+          <button class="tab" onclick="applyColumnPreset('simple')">精简</button>
+          <button class="tab" onclick="applyColumnPreset('review')">复盘</button>
+          <button class="tab" onclick="applyColumnPreset('fund')">资金</button>
+          <button class="tab" onclick="applyColumnPreset('canslim')">财务质量</button>
+          <button class="tab" onclick="applyColumnPreset('ai')">AI研究</button>
+          <button class="tab" onclick="showAllColumns()">全量</button>
+        </div>
+        <div class="column-grid" id="columnChoices"></div>
+      </div>
+      <div class="modal-actions"><button onclick="closeColumnModal()">完成</button></div>
+    </div>
+  </div>
+
+  <div class="drawer-backdrop" id="basketBackdrop" onclick="closeBasket()"></div>
+  <aside class="basket-drawer" id="basketDrawer">
+    <div class="basket-head">
+      <h2>研究自选池</h2>
+      <div class="table-actions">
+        <button class="mini-btn" onclick="openTableModal('basket')">全屏</button>
+        <button class="mini-btn" onclick="closeBasket()">关闭</button>
+      </div>
+    </div>
+    <div class="basket-tools">
+      <select id="copyFormat"><option value="space">6位代码 空格</option><option value="comma">6位代码 逗号</option><option value="line">一行一个</option><option value="suffix">带.SH/.SZ</option></select>
+      <select id="basketGroupMode" onchange="renderBasket()"><option value="none">不分组</option><option value="concept">按来源概念</option><option value="industry">按行业</option><option value="canslim">按财务质量</option></select>
+      <button class="mini-btn" onclick="copyBasketCodes()">复制勾选</button>
+      <button class="mini-btn" onclick="runBasketAi()">AI分析</button>
+      <button class="mini-btn" onclick="downloadBasketCsv()">导出</button>
+      <button class="mini-btn danger" onclick="clearBasket()">清空</button>
+    </div>
+    <div class="basket-body">
+      <div class="table-wrap keep-mobile-table" style="max-height:none;"><table id="basketTable" class="freeze"></table></div>
+    </div>
+  </aside>
+
+  <script src="/global-settings.js"></script>
+  <script src="/app-layout.js"></script>
+  <script>
+    const today = new Date();
+    document.getElementById("endDate").value = `${today.getFullYear()}${String(today.getMonth()+1).padStart(2,"0")}${String(today.getDate()).padStart(2,"0")}`;
+
+    let boards = [];
+    let stocks = [];
+    let recommendBoards = [];
+    let recommendStocks = [];
+    let market = {};
+    let selectedConceptCode = "";
+    let latestAiReview = {};
+    let activeColumnTable = "boards";
+    let boardSort = {key:"ret10", dir:"desc"};
+    let stockSort = {key:"stock_observe_score", dir:"desc"};
+    let recommendBoardSort = {key:"observe_score", dir:"desc"};
+    let recommendStockSort = {key:"recommend_score", dir:"desc"};
+    let selectedBoardCodes = new Set();
+    let selectedStockKeys = new Set();
+    let selectedRecommendBoardCodes = new Set();
+    let selectedRecommendStockCodes = new Set();
+    let basket = loadBasket();
+
+    const columnDefs = {
+      boards: [
+        ["concept_name","概念"],["pct_chg","今涨%"],["ret2","2日%"],["ret5","5日%"],["ret10","10日%"],["ret20","20日%"],["ret30","30日%"],["ret60","60日%"],["concept_score","概念分"],["state","状态"],["net_amount_yi","资金亿"],["lead_stock","领涨股"],["lead_stock_pct","领涨%"],["member_count","成分数"],["up_count","上涨"],["down_count","下跌"],["strong_stock_count","强股"],["above_ma20_ratio","站MA20%"],["distance_ma5","距MA5%"],["distance_ma10","距MA10%"],["distance_ma20","距MA20%"],["risk_flags","风险"],["recommend_reason","理由"],["concept_list_date","创建日"]
+      ],
+      stocks: [
+        ["code","代码"],["name","名称"],["concept_name","来源概念"],["concept_state","概念状态"],["role","角色"],["stock_observe_score","观察分"],["concept_stock_rank","概念排名"],["industry","行业"],["stock_type","类型"],["close","现价"],["pct_chg","今涨%"],["ret2","2日%"],["ret5","5日%"],["ret10","10日%"],["ret20","20日%"],["ret30","30日%"],["ret60","60日%"],["rps5","RPS5"],["rps10","RPS10"],["rps20","RPS20"],["rps60","RPS60"],["amount_yi","成交亿"],["amount_ratio","量能"],["turnover_rate_f","换手%"],["market_cap_yi","总市值亿"],["distance_ma5","距MA5%"],["distance_ma10","距MA10%"],["distance_ma20","距MA20%"],["breakout20","20日新高"],["canslim_pass","财务质量"],["canslim_score","财务分"],["canslim_finance_status","财务状态"],["eps_yoy","EPS同比"],["dt_eps_yoy","扣非EPS同比"],["profit_yoy","净利同比"],["sales_yoy","营收同比"],["annual_eps_yoy","年度EPS同比"],["annual_roe","ROE"],["end_date","报告期"],["canslim_reason","财务原因"],["risk_flags","风险"],["reason","理由"]
+      ],
+      basket: [
+        ["code","代码"],["name","名称"],["source_concepts","来源概念"],["industry","行业"],["role","角色"],["stock_observe_score","观察分"],["rps10","RPS10"],["rps20","RPS20"],["ret2","2日%"],["ret10","10日%"],["ret20","20日%"],["amount_yi","成交亿"],["distance_ma20","距MA20%"],["canslim_pass","财务质量"],["canslim_score","财务分"],["canslim_finance_status","财务状态"],["eps_yoy","EPS同比"],["profit_yoy","净利同比"],["sales_yoy","营收同比"],["annual_roe","ROE"],["canslim_reason","财务原因"],["risk_flags","风险"],["note","备注"],["reason","理由"]
+      ]
+    };
+    const defaultColumns = {
+      boards: ["concept_name","pct_chg","ret2","ret5","ret10","ret20","ret30","ret60","state","net_amount_yi","lead_stock","member_count","strong_stock_count","above_ma20_ratio","risk_flags"],
+      stocks: ["code","name","concept_name","role","stock_observe_score","concept_stock_rank","pct_chg","ret2","ret10","ret20","rps10","rps20","amount_yi","distance_ma20","canslim_pass","risk_flags"],
+      basket: ["code","name","source_concepts","industry","role","stock_observe_score","rps10","ret2","ret10","canslim_pass","risk_flags","note"]
+    };
+    const columnPresets = {
+      simple: {
+        boards: ["concept_name","pct_chg","ret2","ret5","ret10","ret20","ret30","ret60"],
+        stocks: ["code","name","concept_name","pct_chg","ret2","ret5","ret10","ret20","rps10"],
+        basket: ["code","name","source_concepts","ret2","ret10","rps10","note"]
+      },
+      review: defaultColumns,
+      fund: {
+        boards: ["concept_name","pct_chg","ret2","ret5","ret10","ret20","net_amount_yi","lead_stock","strong_stock_count","risk_flags"],
+        stocks: ["code","name","concept_name","pct_chg","amount_yi","amount_ratio","turnover_rate_f","rps10","risk_flags"],
+        basket: ["code","name","source_concepts","amount_yi","amount_ratio","risk_flags","note"]
+      },
+      canslim: {
+        boards: ["concept_name","ret2","ret10","ret20","state","concept_score","strong_stock_count","above_ma20_ratio","risk_flags"],
+        stocks: ["code","name","concept_name","role","canslim_pass","canslim_score","canslim_finance_status","eps_yoy","dt_eps_yoy","profit_yoy","sales_yoy","annual_eps_yoy","annual_roe","canslim_reason","risk_flags"],
+        basket: ["code","name","source_concepts","canslim_pass","canslim_score","canslim_finance_status","eps_yoy","profit_yoy","sales_yoy","annual_roe","canslim_reason","note"]
+      },
+      ai: {
+        boards: ["concept_name","state","recommend_reason","risk_flags"],
+        stocks: ["code","name","source_concepts","industry","role","canslim_pass","risk_flags","reason"],
+        basket: ["code","name","source_concepts","industry","role","risk_flags","note","reason"]
+      }
+    };
+    const requiredColumns = { boards: new Set(["concept_name"]), stocks: new Set(["code","name"]), basket: new Set(["code","name"]) };
+    let visibleColumns = loadAllColumnSettings();
+
+    setupTabs("paramTabs", [
+      ["base","基础"],["risk","风险标记"],["score","评分权重"],["canslim","财务质量"],["ai","AI分析"]
+    ], "base", selectParamTab);
+    setupTabs("columnTabs", [
+      ["boards","概念表"],["stocks","成分股表"],["basket","自选池"]
+    ], "boards", selectColumnTab);
+    loadParams();
+    renderAll();
+    renderBasket();
+
+    function goStrategy(select) {
+      const target = select.value;
+      const current = window.location.pathname === "/index.html" ? "/" : window.location.pathname;
+      if (target && target !== current) window.location.href = target;
+    }
+    function rankPeriodFromSortField(field = document.getElementById("sortField")?.value || "ret10") {
+      const match = String(field).match(/^ret(2|5|10|20|30|60)$/);
+      return match ? Number(match[1]) : 10;
+    }
+    function sortFieldLabel(field = document.getElementById("sortField")?.value || "ret10") {
+      const option = Array.from(document.querySelectorAll("#sortField option")).find(item => item.value === field);
+      return option ? option.textContent.replace(/（.*?）/g, "") : field;
+    }
+    async function runRadar() {
+      const dataSource = getGlobalDataSourcePayload();
+      if (!dataSource) return;
+      saveParams();
+      setStatus("正在读取同花顺概念排行和成分股...");
+      const payload = buildPayload(dataSource);
+      try {
+        const res = await fetch("/api/concept_radar", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload)});
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error || "刷新失败");
+        boards = data.boards || [];
+        stocks = data.stocks || [];
+        recommendBoards = data.recommend_boards || [];
+        recommendStocks = data.recommend_stocks || [];
+        selectedBoardCodes = new Set();
+        selectedStockKeys = new Set();
+        selectedRecommendBoardCodes = new Set();
+        selectedRecommendStockCodes = new Set();
+        market = data.market || {};
+        selectedConceptCode = boards[0]?.concept_code || "";
+        boardSort = {key: document.getElementById("sortField").value, dir:"desc"};
+        stockSort = {key:"stock_observe_score", dir:"desc"};
+        document.getElementById("logBox").textContent = (data.logs || []).join("\n");
+        renderAll();
+        const sourceHint = data.market?.realtime_source ? `；来源 ${data.market.realtime_source}，覆盖 ${data.market.realtime_count || 0} 只` : "";
+        setStatus(`刷新完成：${data.market?.snapshot_state || "行情已更新"}；行情时间 ${data.market?.snapshot_at || ""}${sourceHint}；实际交易日 ${data.trade_date}。${data.date_note || ""}`);
+      } catch (err) {
+        setStatus(`刷新失败：${err.message}`, true);
+      }
+    }
+    function buildPayload(dataSource) {
+      return {
+        ...dataSource,
+        review_mode: "intraday",
+        end_date: document.getElementById("endDate").value.trim(),
+        lookback_days: 92,
+        concept_top_count: num("topCount", 80),
+        concept_rank_period: rankPeriodFromSortField(),
+        concept_sort_field: document.getElementById("sortField").value,
+        concept_keyword: val("keyword"),
+        concept_member_warn_threshold: num("memberWarn", 8),
+        concept_stock_limit_per_board: num("stockLimitPerBoard", 120),
+        concept_recommend_count: num("recommendCount", 8),
+        concept_score_enabled: checked("scoreEnabled"),
+        concept_weight_trend: num("weightTrend", 0),
+        concept_weight_stability: num("weightStability", 0),
+        concept_weight_breadth: num("weightBreadth", 0),
+        concept_weight_money: num("weightMoney", 0),
+        concept_weight_leader: num("weightLeader", 0),
+        concept_weight_persistence: num("weightPersistence", 0),
+        concept_weight_canslim: num("weightCanslim", 0),
+        concept_weight_risk: num("weightRisk", 0),
+        concept_overheat_ret5: num("overheatRet5", 15),
+        concept_overheat_ret10: num("overheatRet10", 28),
+        concept_overheat_distance_ma20: num("overheatDistanceMa20", 15),
+        concept_low_breadth_ma20: num("lowBreadthMa20", 45),
+        concept_canslim_mode: val("canslimMode") || "off",
+        concept_exclude_st: checked("excludeSt"),
+        concept_exclude_star: checked("excludeStar"),
+        concept_exclude_chinext: checked("excludeChinext"),
+        concept_exclude_bj: checked("excludeBj"),
+        canslim_include_fundamental: checked("includeFundamental"),
+        canslim_min_eps_yoy: num("minEpsYoy", 25),
+        canslim_min_dt_eps_yoy: num("minDtEpsYoy", 0),
+        canslim_min_profit_yoy: num("minProfitYoy", 20),
+        canslim_min_sales_yoy: num("minSalesYoy", 20),
+        canslim_min_annual_eps_yoy: num("minAnnualEpsYoy", 20),
+        canslim_min_roe: num("minRoe", 5)
+      };
+    }
+    function renderAll() {
+      renderSummary();
+      renderRecommendBoards();
+      renderRecommendStocks();
+      renderBoards();
+      renderStocks();
+      updateBasketBadges();
+    }
+    function renderSummary() {
+      const items = [
+        ["行情状态", market.snapshot_state || ""],
+        ["行情时间", market.snapshot_at || ""],
+        ["实际交易日", market.trade_date || ""],
+        ["请求日期", market.requested_date || document.getElementById("endDate").value],
+        ["概念数", market.board_count ?? boards.length],
+        ["成分股行", market.stock_row_count ?? stocks.length],
+        ["排序口径", sortFieldLabel(market.sort_field || document.getElementById("sortField").value)],
+        ["评分", market.score_enabled ? "已启用" : "关闭"],
+        ["财务质量", market.canslim_mode || "off"],
+        ["说明", market.date_note || market.note || "默认完整排行，不强过滤。", true]
+      ];
+      document.getElementById("summaryCards").innerHTML = items.map(([k,v,wide]) => `<div class="metric ${wide ? "wide" : ""}"><span>${escapeHtml(k)}</span><strong>${escapeHtml(v ?? "")}</strong></div>`).join("");
+    }
+    function renderRecommendBoards() {
+      const cols = [["concept_name","概念"],["state","状态"],["observe_score","观察分"],["risk_flags","风险"],["reason","理由"]];
+      const rows = sortedRecommendBoards();
+      const selectHead = `<th class="select-cell"><input type="checkbox" onchange="toggleAllRecommendBoards(this.checked)" ${rows.length && rows.every(row=>selectedRecommendBoardCodes.has(row.concept_code)) ? "checked" : ""}></th>`;
+      const head = `<thead><tr>${selectHead}${cols.map(c=>`<th onclick="sortRecommendBoards('${c[0]}')">${escapeHtml(c[1])} ${recommendBoardSort.key === c[0] ? sortMark(recommendBoardSort.dir) : ""}</th>`).join("")}<th>操作</th></tr></thead>`;
+      const body = rows.length ? `<tbody>${rows.map(row=>`<tr ondblclick="openRowDetail('recommendBoards','${escapeJs(row.concept_code)}')"><td class="select-cell"><input type="checkbox" onclick="event.stopPropagation()" onchange="setRecommendBoardSelected('${escapeJs(row.concept_code)}', this.checked)" ${selectedRecommendBoardCodes.has(row.concept_code) ? "checked" : ""}></td>${cols.map(c=>`<td>${renderCell(row, c[0])}</td>`).join("")}<td><button class="mini-btn" onclick="selectConcept('${escapeJs(row.concept_code)}')">查看</button><button class="mini-btn" onclick="openRowDetail('recommendBoards','${escapeJs(row.concept_code)}')">详情</button></td></tr>`).join("")}</tbody>` : `<tbody><tr><td colspan="${cols.length + 2}">暂无数据</td></tr></tbody>`;
+      document.getElementById("recommendBoardsTable").innerHTML = head + body;
+    }
+    function renderRecommendStocks() {
+      const cols = [["code","代码"],["name","名称"],["concept_name","概念"],["role","角色"],["recommend_score","观察分"],["risk_flags","风险"]];
+      const rows = sortedRecommendStocks();
+      const selectHead = `<th class="select-cell"><input type="checkbox" onchange="toggleAllRecommendStocks(this.checked)" ${rows.length && rows.every(row=>selectedRecommendStockCodes.has(row.ts_code)) ? "checked" : ""}></th>`;
+      const head = `<thead><tr>${selectHead}${cols.map(c=>`<th onclick="sortRecommendStocks('${c[0]}')">${escapeHtml(c[1])} ${recommendStockSort.key === c[0] ? sortMark(recommendStockSort.dir) : ""}</th>`).join("")}<th>操作</th></tr></thead>`;
+      const body = rows.length ? `<tbody>${rows.map(row=>`<tr ondblclick="openRowDetail('recommendStocks','${escapeJs(row.ts_code)}')"><td class="select-cell"><input type="checkbox" onclick="event.stopPropagation()" onchange="setRecommendStockSelected('${escapeJs(row.ts_code)}', this.checked)" ${selectedRecommendStockCodes.has(row.ts_code) ? "checked" : ""}></td>${cols.map(c=>`<td>${renderCell(row, c[0])}</td>`).join("")}<td><button class="mini-btn" onclick="addRecommendStock('${escapeJs(row.ts_code)}')">加入</button><button class="mini-btn" onclick="openRowDetail('recommendStocks','${escapeJs(row.ts_code)}')">详情</button></td></tr>`).join("")}</tbody>` : `<tbody><tr><td colspan="${cols.length + 2}">暂无数据</td></tr></tbody>`;
+      document.getElementById("recommendStocksTable").innerHTML = head + body;
+    }
+    function renderBoards() {
+      const cols = visibleColumnList("boards");
+      const selectHead = `<th class="select-cell"><input type="checkbox" onchange="toggleAllBoards(this.checked)" ${boards.length && boards.every(row=>selectedBoardCodes.has(row.concept_code)) ? "checked" : ""}></th>`;
+      const head = `<thead><tr>${selectHead}${cols.map(c=>`<th onclick="sortBoards('${c[0]}')">${escapeHtml(c[1])} ${boardSort.key === c[0] ? sortMark(boardSort.dir) : ""}</th>`).join("")}<th>操作</th></tr></thead>`;
+      const body = boards.length ? `<tbody>${boards.map((r,i)=>`<tr class="${r.concept_code === selectedConceptCode ? "active-row" : ""}" onclick="selectConcept('${escapeJs(r.concept_code)}')" ondblclick="openRowDetail('boards','${escapeJs(r.concept_code)}')"><td class="select-cell"><input type="checkbox" onclick="event.stopPropagation()" onchange="setBoardSelected('${escapeJs(r.concept_code)}', this.checked)" ${selectedBoardCodes.has(r.concept_code) ? "checked" : ""}></td>${cols.map(c=>`<td>${renderCell(r, c[0])}</td>`).join("")}<td><button class="mini-btn" onclick="event.stopPropagation(); selectConcept('${escapeJs(r.concept_code)}')">成分</button><button class="mini-btn" onclick="event.stopPropagation(); openRowDetail('boards','${escapeJs(r.concept_code)}')">详情</button></td></tr>`).join("")}</tbody>` : `<tbody><tr><td colspan="${cols.length + 2}">暂无概念排行</td></tr></tbody>`;
+      document.getElementById("boardsTable").innerHTML = head + body;
+    }
+    function renderStocks() {
+      const current = currentStocks();
+      const board = boards.find(item => item.concept_code === selectedConceptCode) || {};
+      document.getElementById("stockTitle").textContent = board.concept_name ? `${board.concept_name} 成分股明细` : "成分股明细";
+      const cols = visibleColumnList("stocks");
+      const selectHead = `<th class="select-cell"><input type="checkbox" onchange="toggleAllCurrentStocks(this.checked)" ${current.length && current.every(row=>selectedStockKeys.has(stockRowKey(row))) ? "checked" : ""}></th>`;
+      const head = `<thead><tr>${selectHead}${cols.map(c=>`<th onclick="sortStocks('${c[0]}')">${escapeHtml(c[1])} ${stockSort.key === c[0] ? sortMark(stockSort.dir) : ""}</th>`).join("")}<th>操作</th></tr></thead>`;
+      const body = current.length ? `<tbody>${current.map((r,i)=>`<tr ondblclick="openRowDetail('stocks','${escapeJs(stockRowKey(r))}')"><td class="select-cell"><input type="checkbox" onclick="event.stopPropagation()" onchange="setStockSelected('${escapeJs(stockRowKey(r))}', this.checked)" ${selectedStockKeys.has(stockRowKey(r)) ? "checked" : ""}></td>${cols.map(c=>`<td>${renderCell(r, c[0])}</td>`).join("")}<td><button class="mini-btn" onclick="addToBasketByCode('${escapeJs(r.ts_code)}','${escapeJs(r.concept_code)}')">加入自选</button><button class="mini-btn" onclick="openRowDetail('stocks','${escapeJs(stockRowKey(r))}')">详情</button></td></tr>`).join("")}</tbody>` : `<tbody><tr><td colspan="${cols.length + 2}">请选择概念，或刷新后查看成分股。</td></tr></tbody>`;
+      document.getElementById("stocksTable").innerHTML = head + body;
+    }
+    function tableHtml(rows, cols, emptyText, actionFn) {
+      const head = `<thead><tr>${cols.map(c=>`<th>${escapeHtml(c[1])}</th>`).join("")}<th>操作</th></tr></thead>`;
+      const body = rows.length ? `<tbody>${rows.map(row=>`<tr>${cols.map(c=>`<td>${renderCell(row, c[0])}</td>`).join("")}<td>${actionFn ? actionFn(row) : ""}</td></tr>`).join("")}</tbody>` : `<tbody><tr><td colspan="${cols.length + 1}">${escapeHtml(emptyText || "暂无数据")}</td></tr></tbody>`;
+      return head + body;
+    }
+    function currentStocks() {
+      const list = stocks.filter(item => item.concept_code === selectedConceptCode);
+      return [...list].sort((a,b)=>compareCell(a[stockSort.key], b[stockSort.key], stockSort.dir));
+    }
+    function stockRowKey(row) {
+      return `${row?.ts_code || row?.code || ""}|${row?.concept_code || ""}`;
+    }
+    function sortedRecommendBoards() {
+      return [...recommendBoards].sort((a,b)=>compareCell(a[recommendBoardSort.key], b[recommendBoardSort.key], recommendBoardSort.dir));
+    }
+    function sortedRecommendStocks() {
+      return [...recommendStocks].sort((a,b)=>compareCell(a[recommendStockSort.key], b[recommendStockSort.key], recommendStockSort.dir));
+    }
+    function selectConcept(code) {
+      selectedConceptCode = code;
+      renderBoards();
+      renderStocks();
+    }
+    function sortBoards(key) {
+      const dir = boardSort.key === key && boardSort.dir === "desc" ? "asc" : "desc";
+      boardSort = {key, dir};
+      boards.sort((a,b)=>compareCell(a[key], b[key], dir));
+      renderBoards();
+    }
+    function sortStocks(key) {
+      const dir = stockSort.key === key && stockSort.dir === "desc" ? "asc" : "desc";
+      stockSort = {key, dir};
+      renderStocks();
+    }
+    function sortRecommendBoards(key) {
+      const dir = recommendBoardSort.key === key && recommendBoardSort.dir === "desc" ? "asc" : "desc";
+      recommendBoardSort = {key, dir};
+      renderRecommendBoards();
+    }
+    function sortRecommendStocks(key) {
+      const dir = recommendStockSort.key === key && recommendStockSort.dir === "desc" ? "asc" : "desc";
+      recommendStockSort = {key, dir};
+      renderRecommendStocks();
+    }
+    function setBoardSelected(code, checkedValue) {
+      if (checkedValue) selectedBoardCodes.add(code);
+      else selectedBoardCodes.delete(code);
+      renderBoards();
+    }
+    function toggleAllBoards(checkedValue) {
+      boards.forEach(row => checkedValue ? selectedBoardCodes.add(row.concept_code) : selectedBoardCodes.delete(row.concept_code));
+      renderBoards();
+    }
+    function setStockSelected(key, checkedValue) {
+      if (checkedValue) selectedStockKeys.add(key);
+      else selectedStockKeys.delete(key);
+      renderStocks();
+    }
+    function toggleAllCurrentStocks(checkedValue) {
+      currentStocks().forEach(row => checkedValue ? selectedStockKeys.add(stockRowKey(row)) : selectedStockKeys.delete(stockRowKey(row)));
+      renderStocks();
+    }
+    function setRecommendBoardSelected(code, checkedValue) {
+      if (checkedValue) selectedRecommendBoardCodes.add(code);
+      else selectedRecommendBoardCodes.delete(code);
+      renderRecommendBoards();
+    }
+    function toggleAllRecommendBoards(checkedValue) {
+      recommendBoards.forEach(row => checkedValue ? selectedRecommendBoardCodes.add(row.concept_code) : selectedRecommendBoardCodes.delete(row.concept_code));
+      renderRecommendBoards();
+    }
+    function setRecommendStockSelected(code, checkedValue) {
+      if (checkedValue) selectedRecommendStockCodes.add(code);
+      else selectedRecommendStockCodes.delete(code);
+      renderRecommendStocks();
+    }
+    function toggleAllRecommendStocks(checkedValue) {
+      recommendStocks.forEach(row => checkedValue ? selectedRecommendStockCodes.add(row.ts_code) : selectedRecommendStockCodes.delete(row.ts_code));
+      renderRecommendStocks();
+    }
+    function renderCell(row, key) {
+      const value = row[key] ?? "";
+      if (key === "code") return `<span class="code-cell" onclick="copyText('${escapeJs(value)}')">${escapeHtml(value)}</span>`;
+      if (["state","concept_state"].includes(key)) {
+        const text = String(value);
+        const cls = text.includes("站稳") || text.includes("确认") ? "state-good" : (text.includes("退潮") ? "state-bad" : "state-warn");
+        return `<span class="${cls}">${escapeHtml(value)}</span>`;
+      }
+      if (["risk_flags"].includes(key) && value && value !== "正常") return `<span class="risk">${escapeHtml(value)}</span>`;
+      if (["pct_chg","ret2","ret5","ret10","ret20","ret30","ret60","distance_ma5","distance_ma10","distance_ma20","net_amount_yi","lead_stock_pct"].includes(key)) {
+        const numValue = Number(value);
+        const cls = numValue < 0 ? "num-bad" : "num-good";
+        return `<span class="${cls}">${escapeHtml(formatNumber(value, 2))}</span>`;
+      }
+      if (["concept_score","observe_score","recommend_score","stock_observe_score","rps5","rps10","rps20","rps60","amount_yi","amount_ratio","turnover_rate_f","market_cap_yi","canslim_score","close","top_stock_pct","eps_yoy","basic_eps_yoy","dt_eps_yoy","profit_yoy","sales_yoy","annual_eps_yoy","annual_roe"].includes(key)) {
+        return escapeHtml(formatNumber(value, 2));
+      }
+      if (key === "canslim_pass") {
+        const ok = value === "是";
+        return `<span class="${ok ? "state-good" : "state-warn"}">${escapeHtml(value || "未启用")}</span>`;
+      }
+      return escapeHtml(value);
+    }
+    function formatNumber(value, digits=2) {
+      if (value === null || value === undefined || value === "") return "";
+      const number = Number(value);
+      return Number.isFinite(number) ? number.toFixed(digits) : String(value);
+    }
+    function compareCell(a, b, dir) {
+      const na = parseFloat(a), nb = parseFloat(b);
+      const result = (!Number.isNaN(na) && !Number.isNaN(nb)) ? na - nb : String(a ?? "").localeCompare(String(b ?? ""), "zh-Hans-CN");
+      return dir === "asc" ? result : -result;
+    }
+    function sortMark(dir) { return dir === "asc" ? "▲" : "▼"; }
+
+    function addToBasketByCode(tsCode, conceptCode) {
+      const row = stocks.find(item => item.ts_code === tsCode && item.concept_code === conceptCode) || stocks.find(item => item.ts_code === tsCode);
+      if (row) addToBasket(row);
+    }
+    function addRecommendStock(tsCode) {
+      const row = stocks.find(item => item.ts_code === tsCode);
+      if (row) addToBasket(row);
+    }
+    function addRecommendStocks() {
+      const picked = recommendStocks.filter(item => selectedRecommendStockCodes.has(item.ts_code));
+      const rows = picked.length ? picked : recommendStocks;
+      rows.forEach(item => addRecommendStock(item.ts_code));
+      setStatus(`已加入 ${rows.length} 只推荐观察个股到自选池。`);
+    }
+    function addSelectedConceptStocks() {
+      const picked = currentStocks().filter(row => selectedStockKeys.has(stockRowKey(row)));
+      const selected = picked.length ? picked : currentStocks().filter(row => Number(row.rps10 || 0) >= 75 || Number(row.stock_observe_score || 0) >= 70).slice(0, 12);
+      selected.forEach(addToBasket);
+      setStatus(`已加入 ${selected.length} 只${picked.length ? "勾选" : "当前概念强"}股。`);
+    }
+    function addSelectedBoardsStrongStocks() {
+      const boardCodes = [...selectedBoardCodes];
+      if (!boardCodes.length) {
+        alert("请先在概念排行中勾选概念");
+        return;
+      }
+      const codeSet = new Set(boardCodes);
+      const selected = stocks
+        .filter(row => codeSet.has(row.concept_code))
+        .filter(row => Number(row.rps10 || 0) >= 75 || Number(row.stock_observe_score || 0) >= 70)
+        .sort((a,b)=>compareCell(a.stock_observe_score, b.stock_observe_score, "desc"))
+        .slice(0, Math.max(12, boardCodes.length * 8));
+      selected.forEach(addToBasket);
+      setStatus(`已从 ${boardCodes.length} 个概念加入 ${selected.length} 只强股。`);
+    }
+    function addToBasket(row) {
+      const code = String(row.ts_code || row.code || "").trim();
+      if (!code) return;
+      const existing = basket.find(item => item.ts_code === code || item.code === row.code);
+      if (existing) {
+        const concepts = new Set(String(existing.source_concepts || "").split("；").filter(Boolean));
+        concepts.add(row.concept_name || row.source_concepts || "");
+        existing.source_concepts = [...concepts].filter(Boolean).join("；");
+        existing.selected = true;
+      } else {
+        basket.push({...row, selected:true, source_concepts: row.source_concepts || row.concept_name || "", note:""});
+      }
+      saveBasket();
+      renderBasket();
+      updateBasketBadges();
+    }
+    function renderBasket() {
+      const rows = groupedBasketRows();
+      const cols = visibleColumnList("basket");
+      const selectHead = `<th class="select-cell"><input type="checkbox" onchange="toggleAllBasket(this.checked)" ${basket.length && basket.every(item=>item.selected) ? "checked" : ""}></th>`;
+      const head = `<thead><tr>${selectHead}${cols.map(c=>`<th>${escapeHtml(c[1])}</th>`).join("")}<th>操作</th></tr></thead>`;
+      const body = rows.length ? `<tbody>${rows.map((row, i)=>{
+        if (row.__group) return `<tr><td colspan="${cols.length + 2}" style="text-align:left; color:var(--accent); font-weight:900;">${escapeHtml(row.__group)}</td></tr>`;
+        const idx = basket.findIndex(item => item.ts_code === row.ts_code);
+        return `<tr ondblclick="openRowDetail('basket','${escapeJs(row.ts_code)}')"><td class="select-cell"><input type="checkbox" onclick="event.stopPropagation()" ${row.selected ? "checked" : ""} onchange="setBasketSelected('${escapeJs(row.ts_code)}', this.checked)"></td>${cols.map(c=>`<td>${renderBasketCell(row, c[0], idx)}</td>`).join("")}<td><button class="mini-btn" onclick="openRowDetail('basket','${escapeJs(row.ts_code)}')">详情</button><button class="mini-btn danger" onclick="removeBasket('${escapeJs(row.ts_code)}')">移除</button></td></tr>`;
+      }).join("")}</tbody>` : `<tbody><tr><td colspan="${cols.length + 2}">自选池为空。可以从成分股或推荐个股加入。</td></tr></tbody>`;
+      document.getElementById("basketTable").innerHTML = head + body;
+      updateBasketBadges();
+    }
+    function groupedBasketRows() {
+      const mode = document.getElementById("basketGroupMode")?.value || "none";
+      if (mode === "none") return basket;
+      const groups = {};
+      basket.forEach(item => {
+        const key = mode === "concept" ? (item.source_concepts || "未分组") : mode === "industry" ? (item.industry || "未分组") : (item.canslim_pass || "未启用");
+        (groups[key] ||= []).push(item);
+      });
+      return Object.entries(groups).flatMap(([key, items]) => [{__group:key}, ...items]);
+    }
+    function renderBasketCell(row, key, idx) {
+      if (key === "note") return `<input value="${escapeAttr(row.note || "")}" onchange="updateBasketNote(${idx}, this.value)" placeholder="备注" />`;
+      return renderCell(row, key);
+    }
+    function tableConfig(kind) {
+      if (kind === "recommendBoards") return {title:"推荐观察板块", rows:sortedRecommendBoards(), cols:[["concept_name","概念"],["state","状态"],["observe_score","观察分"],["risk_flags","风险"],["reason","理由"]]};
+      if (kind === "recommendStocks") return {title:"推荐观察个股", rows:sortedRecommendStocks(), cols:[["code","代码"],["name","名称"],["concept_name","概念"],["role","角色"],["recommend_score","观察分"],["risk_flags","风险"],["reason","理由"]]};
+      if (kind === "boards") return {title:"概念排行", rows:boards, cols:visibleColumnList("boards")};
+      if (kind === "stocks") {
+        const board = boards.find(item => item.concept_code === selectedConceptCode) || {};
+        return {title:board.concept_name ? `${board.concept_name} 成分股明细` : "成分股明细", rows:currentStocks(), cols:visibleColumnList("stocks")};
+      }
+      if (kind === "basket") return {title:"研究自选池", rows:basket, cols:visibleColumnList("basket")};
+      return {title:"表格", rows:[], cols:[]};
+    }
+    function rowId(kind, row) {
+      if (kind === "stocks") return stockRowKey(row);
+      if (kind === "recommendStocks" || kind === "basket") return row.ts_code || row.code || "";
+      return row.concept_code || "";
+    }
+    function modalTableHtml(kind, rows, cols) {
+      const head = `<thead><tr>${cols.map(c=>`<th>${escapeHtml(c[1])}</th>`).join("")}<th>操作</th></tr></thead>`;
+      const body = rows.length
+        ? `<tbody>${rows.map(row=>`<tr ondblclick="openRowDetail('${kind}','${escapeJs(rowId(kind, row))}')">${cols.map(c=>`<td>${renderCell(row, c[0])}</td>`).join("")}<td><button class="mini-btn" onclick="openRowDetail('${kind}','${escapeJs(rowId(kind, row))}')">详情</button></td></tr>`).join("")}</tbody>`
+        : `<tbody><tr><td colspan="${cols.length + 1}">暂无数据</td></tr></tbody>`;
+      return head + body;
+    }
+    function openTableModal(kind) {
+      const cfg = tableConfig(kind);
+      document.getElementById("tableModalTitle").textContent = cfg.title;
+      const table = document.getElementById("tableModalTable");
+      table.className = "";
+      table.innerHTML = modalTableHtml(kind, cfg.rows, cfg.cols);
+      document.getElementById("tableModal").classList.add("open");
+    }
+    function closeTableModal() {
+      document.getElementById("tableModal").classList.remove("open");
+    }
+    function findRow(kind, id) {
+      if (kind === "recommendBoards") return recommendBoards.find(row => row.concept_code === id);
+      if (kind === "recommendStocks") return recommendStocks.find(row => row.ts_code === id || row.code === id);
+      if (kind === "boards") return boards.find(row => row.concept_code === id);
+      if (kind === "stocks") return stocks.find(row => stockRowKey(row) === id);
+      if (kind === "basket") return basket.find(row => row.ts_code === id || row.code === id);
+      return null;
+    }
+    function detailCols(kind) {
+      if (kind === "recommendBoards") return [["concept_name","概念"],["state","状态"],["observe_score","观察分"],["risk_flags","风险"],["reason","理由"]];
+      if (kind === "recommendStocks") return [["code","代码"],["name","名称"],["concept_name","概念"],["role","角色"],["recommend_score","观察分"],["risk_flags","风险"],["reason","理由"]];
+      if (kind === "boards") return columnDefs.boards;
+      if (kind === "stocks") return columnDefs.stocks;
+      if (kind === "basket") return columnDefs.basket;
+      return [];
+    }
+    function openRowDetail(kind, id) {
+      const row = findRow(kind, id);
+      if (!row) return;
+      const title = row.name ? `${row.code || ""} ${row.name}` : (row.concept_name || "详情");
+      document.getElementById("detailModalTitle").textContent = title;
+      document.getElementById("detailModalBody").innerHTML = detailCols(kind).map(([key,label]) => (
+        `<div class="detail-item"><span>${escapeHtml(label)}</span><strong>${renderCell(row, key)}</strong></div>`
+      )).join("");
+      document.getElementById("detailModal").classList.add("open");
+    }
+    function closeDetailModal() {
+      document.getElementById("detailModal").classList.remove("open");
+    }
+    function setBasketSelected(tsCode, checkedValue) {
+      const item = basket.find(row => row.ts_code === tsCode);
+      if (item) item.selected = checkedValue;
+      saveBasket();
+      renderBasket();
+    }
+    function toggleAllBasket(checkedValue) {
+      basket.forEach(item => item.selected = checkedValue);
+      saveBasket();
+      renderBasket();
+    }
+    function updateBasketNote(index, value) {
+      if (basket[index]) basket[index].note = value;
+      saveBasket();
+    }
+    function removeBasket(tsCode) {
+      basket = basket.filter(item => item.ts_code !== tsCode);
+      saveBasket();
+      renderBasket();
+    }
+    function clearBasket() {
+      if (!basket.length || confirm("确定清空研究自选池？")) {
+        basket = [];
+        saveBasket();
+        renderBasket();
+      }
+    }
+    function openBasket() {
+      document.getElementById("basketDrawer").classList.add("open");
+      document.getElementById("basketBackdrop").classList.add("open");
+      renderBasket();
+    }
+    function closeBasket() {
+      document.getElementById("basketDrawer").classList.remove("open");
+      document.getElementById("basketBackdrop").classList.remove("open");
+    }
+    function updateBasketBadges() {
+      const count = basket.length;
+      document.getElementById("basketCountBadge").textContent = count;
+      document.getElementById("mobileBasketCount").textContent = `自选 ${count} 只`;
+    }
+    function loadBasket() {
+      try { return JSON.parse(localStorage.getItem("conceptRadarBasket:v1") || "[]"); } catch (_) { return []; }
+    }
+    function saveBasket() {
+      localStorage.setItem("conceptRadarBasket:v1", JSON.stringify(basket));
+    }
+    async function copyBasketCodes() {
+      const selected = basket.filter(item => item.selected);
+      const rows = selected.length ? selected : basket;
+      if (!rows.length) { alert("自选池为空"); return; }
+      const format = document.getElementById("copyFormat")?.value || "space";
+      const values = rows.map(row => format === "suffix" ? (row.ts_code || row.code) : String(row.code || "").slice(0, 6)).filter(Boolean);
+      const text = format === "comma" ? values.join(",") : format === "line" ? values.join("\n") : values.join(" ");
+      await copyText(text);
+      setStatus(`已复制 ${values.length} 个代码。`);
+    }
+    async function runBasketAi() {
+      saveParams();
+      const selected = basket.filter(item => item.selected);
+      const rows = selected.length ? selected : basket;
+      if (!rows.length) { alert("请先加入自选股"); return; }
+      const apiKey = val("aiApiKey");
+      if (!apiKey) { openParamModal("ai"); alert("请先在AI分析参数里填写Token"); return; }
+      latestAiReview = {loading:true, message:"AI正在读取新闻、公告和公司信息..."};
+      renderAiReview();
+      try {
+        const payload = {
+          openai_api_key: apiKey,
+          openai_model: val("aiModel") || "gpt-5.5",
+          openai_base_url: val("aiBaseUrl") || "https://mdkj.lol/v1/responses",
+          max_ai_candidates: num("aiMaxCandidates", 30),
+          trade_date: market.trade_date || document.getElementById("endDate").value.trim(),
+          analysis_target: "概念研究自选池",
+          concept_context: {market, recommend_boards: recommendBoards, recommend_stocks: recommendStocks},
+          rows
+        };
+        const res = await fetch("/api/concept_ai_review", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload)});
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error || "AI分析失败");
+        latestAiReview = data;
+        renderAiReview();
+        setStatus(`AI分析完成：${data.analyzed_count || rows.length} 只。`);
+      } catch (err) {
+        latestAiReview = {error:err.message};
+        renderAiReview();
+        setStatus(`AI分析失败：${err.message}`, true);
+      }
+    }
+    function renderAiReview() {
+      const panel = document.getElementById("aiPanel");
+      const cards = document.getElementById("aiCards");
+      const picks = document.getElementById("aiPicks");
+      panel.style.display = "";
+      if (latestAiReview.loading) {
+        cards.innerHTML = `<div class="metric wide"><span>AI分析</span><strong>${escapeHtml(latestAiReview.message)}</strong></div>`;
+        picks.innerHTML = "";
+        return;
+      }
+      if (latestAiReview.error) {
+        cards.innerHTML = `<div class="metric wide"><span>AI分析失败</span><strong class="bad">${escapeHtml(latestAiReview.error)}</strong></div>`;
+        picks.innerHTML = "";
+        return;
+      }
+      const review = latestAiReview.ai_review || {};
+      const top = Array.isArray(review.top_picks) ? review.top_picks : [];
+      cards.innerHTML = [
+        ["整体结论", review.summary || "暂无摘要", true],
+        ["方法", review.selection_method || "按主营、新闻、概念纯度、技术位置和风险综合研究。", true],
+        ["模型", latestAiReview.model || ""],
+        ["分析数量", `${latestAiReview.analyzed_count || 0}/${latestAiReview.candidate_count || 0}`],
+        ["数据缺口", (review.data_gaps || []).slice(0, 3).join("；") || "未说明", true]
+      ].map(([k,v,wide]) => `<div class="metric ${wide ? "wide" : ""}"><span>${escapeHtml(k)}</span><strong>${escapeHtml(v)}</strong></div>`).join("");
+      picks.innerHTML = top.map(renderAiPick).join("") || (latestAiReview.raw_text ? `<pre class="log">${escapeHtml(latestAiReview.raw_text)}</pre>` : "");
+    }
+    function renderAiPick(pick) {
+      const profile = pick.company_profile || {};
+      return `<article class="ai-pick">
+        <h3>${escapeHtml(`#${pick.rank || ""} ${pick.code || ""} ${pick.name || ""}`)}</h3>
+        ${aiLine("动作", `${pick.action || "观察"}｜AI分 ${pick.ai_score ?? ""}｜${pick.confidence || "未标注"}`, "l-watch")}
+        ${aiLine("主营", profile.main_business, "l-company")}
+        ${aiLine("地位", profile.industry_position, "l-company")}
+        ${aiLine("纯度", profile.concept_purity, "l-company")}
+        ${aiLine("板块", pick.sector_view, "l-company")}
+        ${aiLine("概念", pick.concept_view, "l-company")}
+        ${aiLine("新闻", pick.news_view, "l-news")}
+        ${aiLine("新鲜度", pick.evidence_freshness, "l-news")}
+        ${aiLine("技术", pick.technical_view, "l-tech")}
+        ${aiLine("风险", pick.risk_view, "l-risk")}
+        ${aiLine("反证", pick.counter_evidence, "l-risk")}
+        ${aiLine("观察", pick.watch_levels, "l-watch")}
+        ${aiLine("理由", pick.reason, "l-tech")}
+      </article>`;
+    }
+    function aiLine(label, value, cls) {
+      return `<p class="ai-line"><span class="ai-label ${cls}">${escapeHtml(label)}</span>${escapeHtml(formatValue(value))}</p>`;
+    }
+    function formatValue(value) {
+      if (value === null || value === undefined || value === "") return "未说明";
+      if (Array.isArray(value)) return value.map(formatValue).join("；");
+      if (typeof value === "object") return Object.entries(value).map(([k,v]) => `${k}: ${formatValue(v)}`).join("；");
+      return String(value);
+    }
+    async function copyAiReview() {
+      if (!latestAiReview?.ai_review) { alert("暂无AI结论"); return; }
+      await copyText(JSON.stringify(latestAiReview.ai_review, null, 2));
+      setStatus("已复制AI结论JSON。");
+    }
+
+    function openParamModal(pane="base") {
+      document.getElementById("paramModal").classList.add("open");
+      selectParamTab(pane);
+    }
+    function closeParamModal() { document.getElementById("paramModal").classList.remove("open"); }
+    function openColumnModal() {
+      document.getElementById("columnModal").classList.add("open");
+      renderColumnPicker();
+    }
+    function closeColumnModal() { document.getElementById("columnModal").classList.remove("open"); }
+    function setupTabs(id, tabs, active, handler) {
+      document.getElementById(id).innerHTML = tabs.map(([key,label]) => `<button class="tab ${key === active ? "active" : ""}" data-tab="${key}" onclick="${handler.name}('${key}')">${label}</button>`).join("");
+    }
+    function selectParamTab(key) {
+      document.querySelectorAll("#paramTabs .tab").forEach(btn => btn.classList.toggle("active", btn.dataset.tab === key));
+      document.querySelectorAll("#paramModal .tab-pane").forEach(pane => pane.classList.toggle("active", pane.dataset.pane === key));
+    }
+    function selectColumnTab(key) {
+      activeColumnTable = key;
+      document.querySelectorAll("#columnTabs .tab").forEach(btn => btn.classList.toggle("active", btn.dataset.tab === key));
+      renderColumnPicker();
+    }
+    function renderColumnPicker() {
+      const defs = columnDefs[activeColumnTable] || [];
+      const required = requiredColumns[activeColumnTable] || new Set();
+      document.getElementById("columnChoices").innerHTML = defs.map(([key,label]) => {
+        const checkedValue = visibleColumns[activeColumnTable].has(key) ? "checked" : "";
+        const disabled = required.has(key) ? "disabled" : "";
+        return `<label class="column-option"><input type="checkbox" ${checkedValue} ${disabled} onchange="setColumnVisible('${escapeJs(key)}', this.checked)"> ${escapeHtml(label)}${required.has(key) ? "（固定）" : ""}</label>`;
+      }).join("");
+    }
+    function setColumnVisible(key, checkedValue) {
+      if (checkedValue) visibleColumns[activeColumnTable].add(key);
+      else visibleColumns[activeColumnTable].delete(key);
+      (requiredColumns[activeColumnTable] || new Set()).forEach(item => visibleColumns[activeColumnTable].add(item));
+      saveColumnSettings();
+      renderColumnPicker();
+      renderAll();
+      renderBasket();
+    }
+    function applyColumnPreset(name) {
+      const preset = columnPresets[name]?.[activeColumnTable];
+      if (!preset) return;
+      visibleColumns[activeColumnTable] = new Set(preset);
+      (requiredColumns[activeColumnTable] || new Set()).forEach(item => visibleColumns[activeColumnTable].add(item));
+      saveColumnSettings();
+      renderColumnPicker();
+      renderAll();
+      renderBasket();
+    }
+    function showAllColumns() {
+      visibleColumns[activeColumnTable] = new Set(columnDefs[activeColumnTable].map(c => c[0]));
+      saveColumnSettings();
+      renderColumnPicker();
+      renderAll();
+      renderBasket();
+    }
+    function visibleColumnList(table) {
+      return columnDefs[table].filter(([key]) => visibleColumns[table].has(key));
+    }
+    function loadAllColumnSettings() {
+      const result = {};
+      for (const key of Object.keys(columnDefs)) {
+        try {
+          const saved = JSON.parse(localStorage.getItem(`conceptRadarColumns:${key}:v2`) || "null");
+          result[key] = new Set(Array.isArray(saved) ? saved : defaultColumns[key]);
+        } catch (_) {
+          result[key] = new Set(defaultColumns[key]);
+        }
+        (requiredColumns[key] || new Set()).forEach(item => result[key].add(item));
+      }
+      return result;
+    }
+    function saveColumnSettings() {
+      for (const key of Object.keys(visibleColumns)) {
+        localStorage.setItem(`conceptRadarColumns:${key}:v2`, JSON.stringify([...visibleColumns[key]]));
+      }
+    }
+    function applyScorePreset() {
+      document.getElementById("scoreEnabled").checked = true;
+      setValue("weightTrend", 35); setValue("weightStability", 20); setValue("weightBreadth", 20); setValue("weightMoney", 10);
+      setValue("weightLeader", 10); setValue("weightPersistence", 5); setValue("weightCanslim", 0); setValue("weightRisk", 10);
+      updateScoreHint();
+    }
+    function updateScoreHint() {
+      document.getElementById("scoreHint").textContent = checked("scoreEnabled") ? "综合评分已启用，会根据当前权重计算概念分。" : "默认关闭评分，权重为0；开启后才参与概念分。";
+    }
+    function saveParams() {
+      const ids = ["sortField","topCount","keyword","memberWarn","stockLimitPerBoard","recommendCount","excludeSt","excludeStar","excludeChinext","excludeBj","overheatRet5","overheatRet10","overheatDistanceMa20","lowBreadthMa20","scoreEnabled","weightTrend","weightStability","weightBreadth","weightMoney","weightLeader","weightPersistence","weightCanslim","weightRisk","canslimMode","includeFundamental","minEpsYoy","minDtEpsYoy","minProfitYoy","minSalesYoy","minAnnualEpsYoy","minRoe","aiModel","aiBaseUrl","aiMaxCandidates"];
+      const data = {};
+      ids.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        data[id] = el.type === "checkbox" ? el.checked : el.value;
+      });
+      localStorage.setItem("conceptRadarParams:v1", JSON.stringify(data));
+    }
+    function loadParams() {
+      try {
+        const data = JSON.parse(localStorage.getItem("conceptRadarParams:v1") || "{}");
+        Object.entries(data).forEach(([id,value]) => {
+          const el = document.getElementById(id);
+          if (!el) return;
+          if (el.type === "checkbox") el.checked = Boolean(value);
+          else el.value = value;
+        });
+      } catch (_) {}
+      updateScoreHint();
+    }
+    function resetParams() {
+      localStorage.removeItem("conceptRadarParams:v1");
+      window.location.reload();
+    }
+
+    async function copyRecommendBoards() {
+      if (!recommendBoards.length) { alert("暂无推荐观察板块"); return; }
+      const picked = recommendBoards.filter(item => selectedRecommendBoardCodes.has(item.concept_code));
+      const rows = picked.length ? picked : sortedRecommendBoards();
+      await copyText(rows.map((item, idx)=>`${idx+1}. ${item.concept_name} ${item.state}：${item.reason}`).join("\n"));
+      setStatus("已复制推荐观察板块。");
+    }
+    async function downloadBoardsCsv() { downloadCsv(boards, visibleColumnList("boards"), "concept_boards"); }
+    async function downloadStocksCsv() { downloadCsv(stocks, visibleColumnList("stocks"), "concept_stocks"); }
+    async function downloadBasketCsv() { downloadCsv(basket, visibleColumnList("basket"), "concept_basket"); }
+    function downloadCsv(rows, cols, name) {
+      if (!rows.length) { alert("暂无数据"); return; }
+      const csv = [cols.map(c=>`"${String(c[1]).replaceAll('"','""')}"`).join(",")]
+        .concat(rows.map(r=>cols.map(c=>`"${String(r[c[0]] ?? "").replaceAll('"','""')}"`).join(",")))
+        .join("\n");
+      const blob = new Blob(["\ufeff" + csv], {type:"text/csv;charset=utf-8"});
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `${name}_${new Date().toISOString().slice(0,10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+    async function copyText(text) {
+      if (navigator.clipboard && window.isSecureContext) {
+        try { await navigator.clipboard.writeText(text); return; } catch (_) {}
+      }
+      const textarea = document.createElement("textarea");
+      textarea.value = text;
+      textarea.setAttribute("readonly", "");
+      textarea.style.position = "fixed";
+      textarea.style.left = "-9999px";
+      document.body.appendChild(textarea);
+      textarea.focus();
+      textarea.select();
+      document.execCommand("copy");
+      textarea.remove();
+    }
+    function setStatus(text, isBad=false) {
+      const el = document.getElementById("status");
+      el.textContent = text;
+      el.className = isBad ? "status bad" : "status";
+    }
+    function val(id) { return String(document.getElementById(id)?.value ?? "").trim(); }
+    function num(id, fallback=0) { const n = Number(document.getElementById(id)?.value); return Number.isFinite(n) ? n : fallback; }
+    function checked(id) { return Boolean(document.getElementById(id)?.checked); }
+    function setValue(id, value) { const el = document.getElementById(id); if (el) el.value = value; }
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
+    }
+    function escapeAttr(value) { return escapeHtml(value).replace(/`/g, "&#96;"); }
+    function escapeJs(value) { return String(value ?? "").replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/\n/g, "\\n").replace(/\r/g, ""); }
+  </script>
+</body>
+</html>

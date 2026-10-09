@@ -1,0 +1,423 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>红利低波防守策略</title>
+  <style>
+    :root { --bg:#f6f7f9; --panel:#fff; --text:#172033; --muted:#657084; --line:#dfe3ea; --accent:#1769e0; --good:#087f5b; --bad:#c92a2a; --ink:#101828; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:"Microsoft YaHei", Arial, sans-serif; color:var(--text); background:var(--bg); }
+    header { background:var(--panel); border-bottom:1px solid var(--line); padding:14px 18px; }
+    .topbar { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; }
+    h1 { margin:0; font-size:20px; line-height:1.25; }
+    .header-actions { display:flex; align-items:center; gap:8px; }
+    .strategy-nav { width:190px; }
+    .controls { display:grid; grid-template-columns:repeat(6, minmax(120px, 1fr)); gap:10px; align-items:end; }
+    label { display:block; font-size:12px; color:var(--muted); margin-bottom:4px; }
+    input, select { width:100%; height:34px; border:1px solid var(--line); border-radius:6px; padding:0 8px; background:#fff; color:var(--text); }
+    .check { height:34px; display:flex; align-items:center; gap:8px; border:1px solid var(--line); border-radius:6px; padding:0 8px; background:#fff; color:var(--text); font-size:13px; }
+    .check input { width:auto; height:auto; }
+    button { height:34px; border:0; border-radius:6px; background:var(--accent); color:#fff; font-weight:700; cursor:pointer; padding:0 14px; }
+    button.secondary { background:#354052; }
+    button.ghost { background:#fff; color:var(--accent); border:1px solid var(--accent); }
+    button.mini-btn { height:26px; border-radius:5px; padding:0 8px; font-size:12px; background:#fff; color:var(--accent); border:1px solid var(--accent); font-weight:700; }
+    .icon-btn { width:34px; padding:0; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--line); background:#fff; color:var(--text); font-weight:800; }
+    main { padding:14px 18px 28px; }
+    .status { color:var(--muted); margin:8px 0 0; }
+    .bad { color:var(--bad); font-weight:700; }
+    .positive { color:var(--good); font-weight:800; }
+    .probe-pass { color:var(--good); font-weight:800; }
+    .probe-fail { color:var(--bad); font-weight:800; }
+    .cards { display:grid; grid-template-columns:repeat(6, minmax(130px, 1fr)); gap:10px; margin-bottom:12px; }
+    .metric { background:#fff; border:1px solid var(--line); border-radius:8px; padding:12px; min-height:78px; }
+    .metric span { display:block; color:var(--muted); font-size:12px; margin-bottom:6px; }
+    .metric strong { display:block; font-size:18px; line-height:1.3; overflow-wrap:anywhere; }
+    .metric.wide { grid-column:span 2; }
+    .metric.wide strong { font-size:14px; line-height:1.55; font-weight:700; }
+    .toolbar { display:flex; gap:8px; flex-wrap:wrap; margin:0 0 12px; }
+    .table-wrap { background:#fff; border:1px solid var(--line); border-radius:8px; overflow:auto; max-height:calc(100vh - 260px); position:relative; }
+    table { width:100%; border-collapse:collapse; min-width:1900px; }
+    th, td { padding:9px 10px; border-bottom:1px solid var(--line); text-align:center; font-size:13px; white-space:nowrap; }
+    th { position:sticky; top:0; background:#f0f3f7; cursor:pointer; user-select:none; z-index:3; }
+    .freeze-code-name th:nth-child(1), .freeze-code-name td:nth-child(1) { position:sticky; left:0; z-index:2; min-width:88px; width:88px; max-width:88px; overflow:hidden; text-overflow:ellipsis; background:#fff; box-shadow:1px 0 0 var(--line); }
+    .freeze-code-name th:nth-child(2), .freeze-code-name td:nth-child(2) { position:sticky; left:88px; z-index:2; min-width:126px; width:126px; max-width:126px; overflow:hidden; text-overflow:ellipsis; background:#fff; box-shadow:1px 0 0 var(--line); }
+    .freeze-code-name th:nth-child(1), .freeze-code-name th:nth-child(2) { top:0; z-index:5; background:#f0f3f7; }
+    .code-cell { color:var(--accent); font-weight:800; cursor:pointer; }
+    .log { margin-top:12px; background:var(--ink); color:#d7e2f1; border-radius:8px; padding:12px; height:170px; overflow:auto; white-space:pre-wrap; }
+    .modal { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(16,24,40,.45); padding:18px; z-index:10; }
+    .modal.open { display:flex; }
+    .modal-card { width:min(880px, 100%); max-height:88vh; overflow:auto; background:#fff; border-radius:8px; box-shadow:0 18px 60px rgba(16,24,40,.24); border:1px solid var(--line); }
+    .modal-head { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 16px; border-bottom:1px solid var(--line); }
+    .modal-head h2 { margin:0; font-size:16px; }
+    .modal-body { padding:14px 16px 16px; color:#2d3748; line-height:1.7; }
+    .modal-body h3 { margin:14px 0 6px; font-size:15px; color:var(--text); }
+    .modal-body ul { margin:6px 0 0; padding-left:20px; }
+    .modal-body li { margin:4px 0; }
+    @media (max-width:900px) {
+      .topbar { align-items:flex-start; flex-direction:column; }
+      .header-actions { width:100%; }
+      .strategy-nav { flex:1; width:auto; }
+      .controls { grid-template-columns:repeat(2, minmax(130px, 1fr)); }
+      .cards { grid-template-columns:repeat(2, minmax(130px, 1fr)); }
+      .metric.wide { grid-column:span 2; }
+      h1 { font-size:18px; }
+    }
+  </style>
+  <link rel="stylesheet" href="/app-layout.css" />
+</head>
+<body>
+  <header>
+    <div class="topbar">
+      <h1>红利低波防守策略</h1>
+      <div class="header-actions">
+        <select id="strategyNav" class="strategy-nav" onchange="goStrategy(this)" aria-label="策略切换">
+          <option value="/">大盘总览</option>
+          <option value="/mainline-review">主线复盘策略</option>
+          <option value="/concept-radar">同花顺概念雷达</option>
+          <option value="/first-limit">涨停板策略</option>
+          <option value="/canslim-tao">CANSLIM+RPS策略</option>
+          <option value="/value-fcf">低估值现金流策略</option>
+          <option value="/dividend-low-vol" selected>红利低波防守策略</option>
+          <option value="/stock-search">股票模糊搜索</option>
+          <option value="/realtime-ma">批量实时MA检查</option>
+        </select>
+        <button class="icon-btn" onclick="openHelp()" title="查看说明" aria-label="查看说明">?</button>
+      </div>
+    </div>
+    <div class="controls">
+      <div><label>复盘模式</label><select id="reviewMode"><option value="after_close">盘后复盘</option><option value="intraday">盘中预复盘</option></select></div>
+      <div><label>日期 YYYYMMDD</label><input id="endDate" /></div>
+      <div><label>展示数量</label><input id="topCount" type="number" min="1" step="1" value="100" /></div>
+      <div><label>股息率下限%</label><input id="minYield" type="number" step="0.1" value="3.5" /></div>
+      <div><label>股息率上限%</label><input id="maxYield" type="number" step="0.5" value="12" title="防止高股息陷阱，0表示不限制" /></div>
+      <div><label>年波动上限%</label><input id="maxVol" type="number" step="1" value="30" /></div>
+      <div><label>Beta上限</label><input id="maxBeta" type="number" step="0.05" value="0.9" /></div>
+      <div><label>最大回撤上限%</label><input id="maxDrawdown" type="number" step="1" value="25" /></div>
+      <div><label>总市值下限亿</label><input id="minMarketCap" type="number" step="10" value="150" /></div>
+      <div><label>成交额下限亿</label><input id="minAmount" type="number" step="0.1" value="1" /></div>
+      <div><label>ROE下限%</label><input id="minRoe" type="number" step="0.5" value="6" /></div>
+      <div><label>PB上限</label><input id="maxPb" type="number" step="0.1" value="2" /></div>
+      <div><label>PE_TTM上限</label><input id="maxPe" type="number" step="1" value="25" /></div>
+      <div><label>距MA60上限%</label><input id="maxDistanceMa60" type="number" step="1" value="18" /></div>
+      <div><label>20日相对强弱下限%</label><input id="minRs20" type="number" step="1" value="-8" /></div>
+      <div><label>MA60斜率下限%</label><input id="minMa60Slope" type="number" step="1" value="-8" /></div>
+      <div><label>20日涨幅上限%</label><input id="maxRet20" type="number" step="1" value="18" /></div>
+      <div><label>单股分析</label><input id="probeQuery" placeholder="代码或名称，如 601398" /></div>
+      <label class="check"><input id="excludeSt" type="checkbox" checked /> 排除ST</label>
+      <label class="check"><input id="excludeStar" type="checkbox" checked /> 排除科创板</label>
+      <label class="check"><input id="excludeChinext" type="checkbox" checked /> 排除创业板</label>
+      <button onclick="runStrategy()">开始筛选</button>
+      <button class="ghost" onclick="runStrategy()">分析单股</button>
+      <button class="secondary" onclick="downloadCsv()">导出CSV</button>
+      <button class="ghost" onclick="copyAllCodes()">复制代码</button>
+    </div>
+    <div id="status" class="status">等待筛选。</div>
+  </header>
+  <main>
+    <div class="cards" id="summaryCards"></div>
+    <div class="cards" id="probeCards"></div>
+    <div class="table-wrap" id="probeWrap" style="display:none; max-height:260px;"><table id="probeTable" class="freeze-code-name"></table></div>
+    <div class="toolbar">
+      <button onclick="runStrategy()">刷新</button>
+      <button class="ghost" onclick="copyTopCodes()">复制前20</button>
+      <button class="secondary" onclick="downloadCsv()">导出CSV</button>
+    </div>
+    <div class="table-wrap"><table id="resultTable" class="freeze-code-name"></table></div>
+    <div class="log" id="logBox"></div>
+  </main>
+
+  <div class="modal" id="helpModal" onclick="closeHelpOnBackdrop(event)" aria-hidden="true">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+      <div class="modal-head">
+        <h2 id="helpTitle">红利低波防守策略说明</h2>
+        <button class="icon-btn" onclick="closeHelp()" title="关闭" aria-label="关闭">x</button>
+      </div>
+      <div class="modal-body">
+        <h3>策略定位</h3>
+        <ul>
+          <li>用于疑似2浪或A浪初期：降低账户波动，优先持有现金流、分红和估值锚更清晰的股票。</li>
+          <li>它不是主升浪追涨模型，也不是高股息越高越好；过高股息率会被视为潜在陷阱。</li>
+          <li>买入逻辑是“现金流和分红提供地基，低Beta和低波动降低回撤，价格不远离MA60避免追高或破位”。</li>
+        </ul>
+        <h3>核心口径</h3>
+        <ul>
+          <li>股息率优先使用 daily_basic 的 TTM 股息率，缺失时用静态股息率。</li>
+          <li>波动率、Beta、最大回撤来自最近约60个交易日；Beta 使用全市场等权涨跌幅作市场代理。</li>
+          <li>趋势项看三件事：20日相对强弱、MA60斜率、20日涨幅是否过热。它只占约15%权重，用来避开破位和高位拥挤。</li>
+          <li>质量项使用ROE和FCF率，ROE是硬过滤，FCF率主要做加分，避免只看分红却忽略现金流。</li>
+          <li>银行、保险、证券等金融股的现金流表不可和实体企业直接比较，FCF率按中性处理并在结果中留空。</li>
+          <li>防守行业会给银行、电力、公用事业、高速港口、运营商、煤炭石油等加分，但不会单独决定入选。</li>
+        </ul>
+        <h3>2浪/A浪初期怎么用</h3>
+        <ul>
+          <li>先把仓位降下来，再用本页筛防守仓，不要因为筛出高分就满仓。</li>
+          <li>优先看分数高、股息率适中、年波动低、Beta低、距离MA60不大的标的。</li>
+          <li>如果市场重新进入3浪主升，防守仓应逐步让位给前主线核心股和强势成长策略。</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <script src="/global-settings.js"></script>
+  <script src="/app-layout.js"></script>
+  <script src="/backtest.js"></script>
+  <script>
+    const today = new Date();
+    document.getElementById("endDate").value = `${today.getFullYear()}${String(today.getMonth()+1).padStart(2,"0")}${String(today.getDate()).padStart(2,"0")}`;
+    let rows = [];
+    let latestFinancial = {};
+    let latestTradeDate = "";
+    let latestProbe = {};
+    let sortState = {};
+    const cols = [
+      ["code","代码"],["name","名称"],["stock_type","股票类型"],["industry","行业"],["defense_bucket","防守分类"],["close","收盘"],["pct_chg","涨跌%"],["amount_yi","成交额亿"],["market_cap_yi","总市值亿"],
+      ["dividend_yield","股息率%"],["annual_volatility","年波动%"],["beta","Beta"],["max_drawdown","近60日回撤%"],["distance_ma60","距MA60%"],["ret20","20日涨跌%"],
+      ["rs20","20日相对强弱%"],["ma60_slope","MA60斜率%"],["trend_state","趋势状态"],["trend_score","趋势分"],
+      ["pb","PB"],["pe_ttm","PE_TTM"],["roe","年化ROE%"],["fcf_yield","FCF率%"],["dividend_score","防守分"],["report_date","ROE报告期"],["cashflow_report_date","现金流报告期"],["reason","理由"]
+    ];
+    const probeCols = [["label","项目"],["value","当前值"],["op","条件"],["threshold","阈值"],["unit","单位"],["pass","是否通过"]];
+
+    function goStrategy(select) {
+      const target = select.value;
+      const current = window.location.pathname === "/index.html" ? "/" : window.location.pathname;
+      if (target && target !== current) {
+        if (window.matchMedia("(max-width: 900px)").matches) {
+          window.location.href = target;
+          return;
+        }
+        window.open(target, "_blank", "noopener");
+      }
+      select.value = current;
+    }
+
+    function payload() {
+      const dataSource = getGlobalDataSourcePayload();
+      if (!dataSource) return null;
+      return {
+        ...dataSource,
+        review_mode: document.getElementById("reviewMode").value,
+        end_date: document.getElementById("endDate").value.trim(),
+        lookback_days: 90,
+        dividend_top_count: Number(document.getElementById("topCount").value),
+        dividend_min_yield: Number(document.getElementById("minYield").value),
+        dividend_max_yield: Number(document.getElementById("maxYield").value),
+        dividend_min_market_cap_yi: Number(document.getElementById("minMarketCap").value),
+        dividend_min_amount_yi: Number(document.getElementById("minAmount").value),
+        dividend_max_volatility: Number(document.getElementById("maxVol").value),
+        dividend_max_beta: Number(document.getElementById("maxBeta").value),
+        dividend_max_drawdown: Number(document.getElementById("maxDrawdown").value),
+        dividend_min_roe: Number(document.getElementById("minRoe").value),
+        dividend_max_pb: Number(document.getElementById("maxPb").value),
+        dividend_max_pe_ttm: Number(document.getElementById("maxPe").value),
+        dividend_max_distance_ma60: Number(document.getElementById("maxDistanceMa60").value),
+        dividend_min_rs20: Number(document.getElementById("minRs20").value),
+        dividend_min_ma60_slope: Number(document.getElementById("minMa60Slope").value),
+        dividend_max_ret20: Number(document.getElementById("maxRet20").value),
+        dividend_exclude_st: document.getElementById("excludeSt").checked,
+        dividend_exclude_star: document.getElementById("excludeStar").checked,
+        dividend_exclude_chinext: document.getElementById("excludeChinext").checked,
+        dividend_probe_query: document.getElementById("probeQuery").value.trim()
+      };
+    }
+
+    async function runStrategy() {
+      const body = payload();
+      if (!body) return;
+      setStatus("正在筛选红利低波防守池，首次读取红利和财务数据会慢一些...");
+      try {
+        const res = await fetch("/api/dividend_low_vol", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)});
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error || "筛选失败");
+        rows = data.rows || [];
+        latestFinancial = data.financial || {};
+        latestTradeDate = data.trade_date || "";
+        latestProbe = data.probe || {};
+        renderSummary(body);
+        renderProbe();
+        renderTable();
+        document.getElementById("logBox").textContent = (data.logs || []).join("\n");
+        setStatus(`筛选完成，交易日 ${latestTradeDate}，共 ${rows.length} 只`);
+      } catch (err) {
+        setStatus(`筛选失败：${err.message}`, true);
+      }
+    }
+
+    function renderSummary(body) {
+      const avgYield = rows.length ? avg(rows.map(r => r.dividend_yield)).toFixed(2) + "%" : "";
+      const avgVol = rows.length ? avg(rows.map(r => r.annual_volatility)).toFixed(2) + "%" : "";
+      const items = [
+        ["交易日", latestTradeDate],
+        ["候选数量", rows.length],
+        ["平均股息率", avgYield],
+        ["平均年波动", avgVol],
+        ["股息率区间", `${body.dividend_min_yield}% - ${body.dividend_max_yield || "不限"}%`],
+        ["波动/Beta", `${body.dividend_max_volatility}% / ${body.dividend_max_beta}`],
+        ["趋势门槛", `RS20>=${body.dividend_min_rs20}%，MA60斜率>=${body.dividend_min_ma60_slope}%，20日<=${body.dividend_max_ret20 || "不限"}%`, true],
+        ["财务状态", latestFinancial.status || ""],
+        ["财务说明", latestFinancial.note || "", true]
+      ];
+      document.getElementById("summaryCards").innerHTML = items.map(([k,v,wide]) => (
+        `<div class="metric ${wide ? "wide" : ""}"><span>${escapeHtml(k)}</span><strong>${escapeHtml(v)}</strong></div>`
+      )).join("");
+    }
+
+    function renderTable() {
+      const head = `<thead><tr>${cols.map(c=>`<th onclick="sortTable('${c[0]}')">${escapeHtml(c[1])} ${sortMark(c[0])}</th>`).join("")}<th>操作</th></tr></thead>`;
+      const body = `<tbody>${rows.map((r,i)=>`<tr>${cols.map(c=>`<td>${renderCell(r, c[0])}</td>`).join("")}<td><button class="mini-btn" onclick="copyRow(rows[${i}], cols)">复制整行</button></td></tr>`).join("")}</tbody>`;
+      document.getElementById("resultTable").innerHTML = head + body;
+    }
+
+    function renderProbe() {
+      const cards = document.getElementById("probeCards");
+      const wrap = document.getElementById("probeWrap");
+      if (!latestProbe || !latestProbe.query) {
+        cards.innerHTML = "";
+        wrap.style.display = "none";
+        return;
+      }
+      if (!latestProbe.found) {
+        cards.innerHTML = `<div class="metric wide"><span>单股分析</span><strong class="probe-fail">${escapeHtml(latestProbe.message || "未找到")}</strong></div>`;
+        wrap.style.display = "none";
+        return;
+      }
+      const cls = latestProbe.overall_pass ? "probe-pass" : "probe-fail";
+      cards.innerHTML = [
+        ["单股分析", latestProbe.query],
+        ["结论", latestProbe.summary || "", true],
+        ["是否符合", latestProbe.overall_pass ? "符合" : "不符合"]
+      ].map(([k,v,wide]) => `<div class="metric ${wide ? "wide" : ""}"><span>${escapeHtml(k)}</span><strong class="${k === "是否符合" ? cls : ""}">${escapeHtml(v)}</strong></div>`).join("");
+      const checks = latestProbe.checks || [];
+      const row = latestProbe.row || {};
+      const rowHead = `<thead><tr>${cols.map(c=>`<th>${escapeHtml(c[1])}</th>`).join("")}<th>操作</th></tr></thead>`;
+      const rowBody = `<tbody><tr>${cols.map(c=>`<td>${renderCell(row, c[0])}</td>`).join("")}<td><button class="mini-btn" onclick="copyRow(latestProbe.row, cols)">复制整行</button></td></tr></tbody>`;
+      const checkHead = `<thead><tr>${probeCols.map(c=>`<th>${escapeHtml(c[1])}</th>`).join("")}<th>操作</th></tr></thead>`;
+      const checkBody = `<tbody>${checks.map((r,i)=>`<tr>${probeCols.map(c=>`<td>${renderProbeCell(r, c[0])}</td>`).join("")}<td><button class="mini-btn" onclick="copyRow((latestProbe.checks || [])[${i}], probeCols)">复制整行</button></td></tr>`).join("")}</tbody>`;
+      document.getElementById("probeTable").innerHTML = rowHead + rowBody + checkHead + checkBody;
+      wrap.style.display = "";
+    }
+
+    function renderProbeCell(row, key) {
+      const value = key === "pass" ? (row.pass ? "通过" : "未通过") : (row[key] ?? "");
+      const cls = key === "pass" ? (row.pass ? "probe-pass" : "probe-fail") : "";
+      return `<span class="${cls}">${escapeHtml(value)}</span>`;
+    }
+
+    function renderCell(row, key) {
+      const value = row[key] ?? "";
+      if (key === "code") return `<span class="code-cell" title="点击复制代码" onclick="copyCode('${escapeJs(value)}')">${escapeHtml(value)}</span>`;
+      if (["dividend_yield","roe","fcf_yield","rs20","trend_score"].includes(key) && Number(value) > 0) return `<span class="positive">${escapeHtml(value)}</span>`;
+      if (["annual_volatility","beta","max_drawdown"].includes(key) && Number(value) > 0) return `<span>${escapeHtml(value)}</span>`;
+      if (key === "pct_chg") return `<span class="${Number(value) >= 0 ? "positive" : "bad"}">${escapeHtml(value)}</span>`;
+      return escapeHtml(value);
+    }
+
+    function sortMark(key) {
+      if (sortState.key !== key) return "";
+      return sortState.dir === "asc" ? "▲" : "▼";
+    }
+
+    function sortTable(key) {
+      const dir = sortState.key === key && sortState.dir === "desc" ? "asc" : "desc";
+      sortState = {key, dir};
+      rows.sort((a, b) => compareCell(a[key], b[key], dir));
+      renderTable();
+    }
+
+    function compareCell(a, b, dir) {
+      const na = parseFloat(a), nb = parseFloat(b);
+      const result = (!Number.isNaN(na) && !Number.isNaN(nb)) ? na - nb : String(a ?? "").localeCompare(String(b ?? ""), "zh-Hans-CN");
+      return dir === "asc" ? result : -result;
+    }
+
+    function avg(values) {
+      const nums = values.map(Number).filter(Number.isFinite);
+      return nums.length ? nums.reduce((a,b) => a + b, 0) / nums.length : 0;
+    }
+
+    function getCodes(limit=0) {
+      const selected = limit > 0 ? rows.slice(0, limit) : rows;
+      return [...new Set(selected.map(r => String(r.code || "").trim()).filter(Boolean))];
+    }
+
+    async function copyCode(code) {
+      await navigator.clipboard.writeText(code);
+      setStatus(`已复制 ${code}`);
+    }
+
+    async function copyRow(row, columns) {
+      if (!row) return;
+      const header = columns.map(c => c[1]).join("\t");
+      const line = columns.map(c => String(row[c[0]] ?? "").replace(/\s+/g, " ").trim()).join("\t");
+      await navigator.clipboard.writeText(`${header}\n${line}`);
+      setStatus("已复制整行数据和表头");
+    }
+
+    async function copyAllCodes() {
+      const codes = getCodes();
+      if (!codes.length) { alert("暂无数据"); return; }
+      await navigator.clipboard.writeText(codes.join("\n"));
+      setStatus(`已复制 ${codes.length} 个代码`);
+    }
+
+    async function copyTopCodes() {
+      const codes = getCodes(20);
+      if (!codes.length) { alert("暂无数据"); return; }
+      await navigator.clipboard.writeText(codes.join("\n"));
+      setStatus(`已复制前 ${codes.length} 个代码`);
+    }
+
+    function downloadCsv() {
+      if (!rows.length) { alert("暂无数据"); return; }
+      const keys = cols.map(c => c[0]);
+      const csv = [cols.map(c => c[1]).join(",")].concat(rows.map(r => keys.map(k => `"${String(r[k] ?? "").replaceAll('"','""')}"`).join(","))).join("\n");
+      const blob = new Blob(["\ufeff" + csv], {type:"text/csv;charset=utf-8"});
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `dividend_low_vol_${new Date().toISOString().slice(0,10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    function setStatus(text, bad=false) {
+      const el = document.getElementById("status");
+      el.textContent = text;
+      el.className = bad ? "status bad" : "status";
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch]));
+    }
+
+    function escapeJs(value) {
+      return String(value ?? "").replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+    }
+
+    function openHelp() {
+      const modal = document.getElementById("helpModal");
+      modal.classList.add("open");
+      modal.setAttribute("aria-hidden", "false");
+    }
+    function closeHelp() {
+      const modal = document.getElementById("helpModal");
+      modal.classList.remove("open");
+      modal.setAttribute("aria-hidden", "true");
+    }
+    function closeHelpOnBackdrop(event) {
+      if (event.target.id === "helpModal") closeHelp();
+    }
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape") closeHelp();
+    });
+
+    initBacktestPanel({
+      strategy: "dividend_low_vol",
+      getPayload: () => {
+        const body = payload();
+        if (!body) return null;
+        return {...body, review_mode: "after_close", dividend_probe_query: ""};
+      }
+    });
+  </script>
+</body>
+</html>

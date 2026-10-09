@@ -1,0 +1,25 @@
+__pycache__/
+*.py[cod]
+*.log
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local credentials and machine-specific configuration
+data_source.local.json
+*.local.json
+
+# Browser automation profiles and generated caches
+chrome-*/
+edge-*/
+.edge-mobile-check/
+.agents/
+review_cache/
+review_cache_web/
+
+# Generated local screenshots and crash artifacts
+layout-check-*.png
+*.dmp
+
+# Local review/runtime output
+*.out

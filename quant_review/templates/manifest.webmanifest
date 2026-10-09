@@ -1,0 +1,40 @@
+{
+  "name": "A股量化复盘工作台",
+  "short_name": "量化复盘",
+  "description": "移动端和桌面端共用的A股策略复盘工具",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0d1117",
+  "theme_color": "#0d1117",
+  "categories": ["finance", "productivity"],
+  "icons": [
+    {
+      "src": "/app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "低价暗语",
+      "short_name": "暗语",
+      "url": "/price-code-low",
+      "icons": [{ "src": "/app-icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    },
+    {
+      "name": "市场排名",
+      "short_name": "排名",
+      "url": "/industry-market-cap-rank",
+      "icons": [{ "src": "/app-icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    },
+    {
+      "name": "实时MA",
+      "short_name": "MA",
+      "url": "/realtime-ma",
+      "icons": [{ "src": "/app-icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    }
+  ]
+}

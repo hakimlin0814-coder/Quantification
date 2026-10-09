@@ -1,0 +1,821 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>A股大盘总览</title>
+  <style>
+    :root { --bg:#f6f7f9; --panel:#fff; --text:#172033; --muted:#657084; --line:#dfe3ea; --accent:#1769e0; --good:#087f5b; --bad:#c92a2a; --ink:#101828; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:"Microsoft YaHei", Arial, sans-serif; color:var(--text); background:var(--bg); }
+    header { position:sticky; top:0; z-index:3; background:var(--panel); border-bottom:1px solid var(--line); padding:14px 18px; }
+    .topbar { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px; }
+    h1 { margin:0; font-size:20px; line-height:1.25; }
+    h2 { margin:0 0 10px; font-size:16px; }
+    .header-actions { display:flex; align-items:center; gap:8px; }
+    .strategy-nav { width:190px; }
+    label { display:block; font-size:12px; color:var(--muted); margin-bottom:4px; }
+    input, select { width:100%; height:34px; border:1px solid var(--line); border-radius:6px; padding:0 8px; background:#fff; color:var(--text); }
+    button { height:34px; border:0; border-radius:6px; background:var(--accent); color:#fff; font-weight:700; cursor:pointer; padding:0 14px; }
+    button.secondary { background:#354052; }
+    button.ghost { background:#fff; color:var(--accent); border:1px solid var(--accent); }
+    .icon-btn { width:34px; padding:0; display:inline-flex; align-items:center; justify-content:center; border:1px solid var(--line); background:#fff; color:var(--text); font-weight:800; }
+    .controls { display:grid; grid-template-columns:repeat(6, minmax(130px, 1fr)); gap:10px; align-items:end; }
+    .status { color:var(--muted); margin:8px 0 0; }
+    .bad { color:var(--bad); font-weight:700; }
+    main { padding:14px 18px 28px; }
+    .cards { display:grid; grid-template-columns:repeat(6, minmax(130px, 1fr)); gap:10px; margin-bottom:12px; }
+    .metric { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:12px; min-height:78px; }
+    .metric span { display:block; color:var(--muted); font-size:12px; margin-bottom:6px; }
+    .metric strong { display:block; font-size:20px; line-height:1.25; overflow-wrap:anywhere; }
+    .metric.wide { grid-column:span 3; }
+    .metric.wide strong { font-size:14px; line-height:1.55; font-weight:700; }
+    .index-panel { margin:0 0 14px; padding:14px; border:1px solid var(--app-border, var(--line)); border-radius:8px; background:var(--app-panel, var(--panel)); }
+    .index-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:0 0 10px; flex-wrap:wrap; }
+    .index-tabs { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .index-tab { height:32px; border:1px solid var(--app-border, var(--line)); border-radius:6px; background:var(--app-panel-soft, #fff); color:var(--app-text, var(--text)); padding:0 10px; font-weight:700; cursor:pointer; }
+    .index-tab.active { border-color:var(--app-accent, var(--accent)); color:var(--app-accent, var(--accent)); background:var(--app-panel-hover, #eef5ff); }
+    .index-meta { color:var(--app-muted, var(--muted)); font-size:13px; line-height:1.6; }
+    .chart-shell { position:relative; width:100%; height:540px; border:1px solid var(--app-border, var(--line)); border-radius:8px; background:#06090f; overflow:hidden; cursor:crosshair; touch-action:none; }
+    .chart-shell.grabbing { cursor:grabbing; }
+    #indexChart { display:block; width:100%; height:100%; }
+    .chart-tools { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .chart-tools button { height:28px; padding:0 10px; font-size:12px; background:var(--app-panel-soft, #fff); color:var(--app-accent, var(--accent)); border:1px solid var(--app-border, var(--line)); }
+    .chart-tooltip { position:absolute; z-index:2; display:none; min-width:230px; max-width:280px; pointer-events:none; padding:9px 10px; border:1px solid rgba(240,246,252,.2); border-radius:8px; background:rgba(13,17,23,.94); color:#e6edf3; box-shadow:0 12px 28px rgba(0,0,0,.28); font-size:12px; line-height:1.55; }
+    .chart-tooltip strong { display:block; margin-bottom:4px; font-size:13px; color:#fff; }
+    .chart-legend { display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin:10px 0 0; color:var(--app-muted, var(--muted)); font-size:12px; }
+    .legend-item { display:inline-flex; align-items:center; gap:6px; }
+    .legend-line { width:20px; height:3px; border-radius:999px; background:#58a6ff; }
+    .legend-line.ma10 { background:#d29922; }
+    .legend-line.ma20 { background:#a371f7; }
+    .legend-line.ma60 { background:#8b949e; }
+    .legend-line.channel { background:#f2cc60; }
+    .legend-line.channel-major { background:#39c5bb; }
+    .wave-grid { display:grid; grid-template-columns:repeat(4, minmax(130px, 1fr)); gap:10px; margin:12px 0 0; }
+    .wave-item { min-height:68px; padding:10px; border:1px solid var(--app-border, var(--line)); border-radius:8px; background:var(--app-panel-soft, #fff); }
+    .wave-item span { display:block; color:var(--app-muted, var(--muted)); font-size:12px; margin:0 0 5px; }
+    .wave-item strong { display:block; color:var(--app-text, var(--text)); font-size:15px; line-height:1.35; overflow-wrap:anywhere; }
+    .wave-note { grid-column:span 4; color:var(--app-text, var(--text)); line-height:1.65; }
+    .log { background:var(--ink); color:#d7e2f1; border-radius:8px; padding:12px; min-height:150px; max-height:260px; overflow:auto; white-space:pre-wrap; }
+    .modal { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(16,24,40,.45); padding:18px; z-index:10; }
+    .modal.open { display:flex; }
+    .modal-card { width:min(720px, 100%); max-height:88vh; overflow:auto; background:#fff; border-radius:8px; box-shadow:0 18px 60px rgba(16,24,40,.24); border:1px solid var(--line); }
+    .modal-head { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 16px; border-bottom:1px solid var(--line); }
+    .modal-body { padding:14px 16px 16px; color:#2d3748; line-height:1.65; }
+    .modal-body h3 { margin:14px 0 6px; font-size:15px; color:var(--text); }
+    .modal-body ul { margin:6px 0 0; padding-left:20px; }
+    @media (max-width:900px) {
+      header { position:static; }
+      .topbar { align-items:flex-start; flex-direction:column; }
+      .header-actions { width:100%; }
+      .strategy-nav { flex:1; width:auto; }
+      .controls { grid-template-columns:repeat(2, minmax(130px, 1fr)); }
+      .cards { grid-template-columns:repeat(2, minmax(130px, 1fr)); }
+      .metric.wide { grid-column:span 2; }
+      .chart-shell { height:420px; }
+      .wave-grid { grid-template-columns:repeat(2, minmax(130px, 1fr)); }
+      .wave-note { grid-column:span 2; }
+      h1 { font-size:18px; }
+    }
+  </style>
+  <link rel="stylesheet" href="/app-layout.css" />
+</head>
+<body>
+  <header>
+    <div class="topbar">
+      <h1>A股大盘总览</h1>
+      <div class="header-actions">
+        <select id="strategyNav" class="strategy-nav" onchange="goStrategy(this)" aria-label="策略切换">
+          <option value="/" selected>大盘总览</option>
+          <option value="/mainline-review">主线复盘策略</option>
+          <option value="/concept-radar">同花顺概念雷达</option>
+          <option value="/cross-sectional-momentum">横截面动量策略</option>
+          <option value="/first-limit">涨停板策略</option>
+          <option value="/canslim-tao">CANSLIM+RPS策略</option>
+          <option value="/value-fcf">低估值现金流策略</option>
+          <option value="/dividend-low-vol">红利低波防守策略</option>
+          <option value="/stock-search">股票模糊搜索</option>
+          <option value="/realtime-ma">批量实时MA检查</option>
+        </select>
+        <button class="icon-btn" onclick="openHelp()" title="查看说明" aria-label="查看说明">?</button>
+      </div>
+    </div>
+    <div class="controls">
+      <div><label>复盘模式</label><select id="reviewMode"><option value="after_close">盘后复盘</option><option value="intraday">盘中预复盘</option></select></div>
+      <div><label>日期 YYYYMMDD</label><input id="endDate" /></div>
+      <div><label>回看交易日</label><input id="lookbackDays" type="number" value="250" /></div>
+      <div><label>指数周期</label><select id="indexPeriod" onchange="if (indexCharts.length) runMarketOverview()"><option value="daily">日线</option><option value="120min">120分钟</option><option value="60min">60分钟</option><option value="30min">30分钟</option><option value="15min">15分钟</option><option value="5min">5分钟</option></select></div>
+      <button onclick="runMarketOverview()">刷新大盘</button>
+    </div>
+    <div id="status" class="status">等待刷新。</div>
+  </header>
+  <main>
+    <h2>市场温度</h2>
+    <div class="cards" id="marketCards"></div>
+    <h2>指数K线与艾略特波浪</h2>
+    <div class="index-panel" id="indexPanel">
+      <div class="index-head">
+        <div class="index-tabs" id="indexTabs"></div>
+        <div class="chart-tools">
+          <button onclick="zoomChart(0.75)">放大</button>
+          <button onclick="zoomChart(1.35)">缩小</button>
+          <button onclick="panChart(-20)">左移</button>
+          <button onclick="panChart(20)">右移</button>
+          <button onclick="resetActiveChartView()">复位</button>
+        </div>
+        <div class="index-meta" id="indexMeta">刷新后显示指数结构</div>
+      </div>
+      <div class="chart-shell" id="chartShell"><canvas id="indexChart"></canvas><div class="chart-tooltip" id="chartTooltip"></div></div>
+      <div class="chart-legend">
+        <span class="legend-item"><i class="legend-line"></i>MA5</span>
+        <span class="legend-item"><i class="legend-line ma10"></i>MA10</span>
+        <span class="legend-item"><i class="legend-line ma20"></i>MA20</span>
+        <span class="legend-item"><i class="legend-line ma60"></i>MA60</span>
+        <span class="legend-item"><i class="legend-line channel"></i>短期通道</span>
+        <span class="legend-item"><i class="legend-line channel-major"></i>主通道</span>
+        <span class="legend-item">滚轮缩放，按住拖动平移，悬停查看OHLC</span>
+        <span class="legend-item">红涨绿跌，底部为成交额</span>
+      </div>
+      <div class="wave-grid" id="waveGrid"></div>
+    </div>
+    <h2>运行日志</h2>
+    <div class="log" id="logBox"></div>
+  </main>
+
+  <div class="modal" id="helpModal" onclick="closeHelpOnBackdrop(event)" aria-hidden="true">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+      <div class="modal-head">
+        <h2 id="helpTitle">大盘总览说明</h2>
+        <button class="icon-btn" onclick="closeHelp()" title="关闭" aria-label="关闭">x</button>
+      </div>
+      <div class="modal-body">
+        <h3>看什么</h3>
+        <ul>
+          <li>市场状态、温度分、建议仓位用于判断当天是否适合提高策略进攻性。</li>
+          <li>上涨比例、涨停数、跌停数、炸板数用于观察赚钱效应和亏钱效应。</li>
+          <li>成交额、量能比、资金流用于确认行情是否有足够流动性支撑。</li>
+          <li>指数K线用于观察上证指数、深成指、创业板指的趋势、均线和成交额结构。</li>
+          <li>艾略特波浪是规则化推演，只用于辅助判断大盘阶段，不作为单独买卖依据。</li>
+        </ul>
+        <h3>怎么用</h3>
+        <ul>
+          <li>设置日期和复盘模式后点击“刷新大盘”。</li>
+          <li>回看交易日决定本次读取多少个历史交易日；它会影响均线、量能比、指数K线和波浪转折识别。做波浪分析建议 250 个交易日左右，想看更大级别可提高到 320。</li>
+          <li>顶部下拉框可直接切换到主线复盘、涨停板或 CANSLIM+RPS 策略。</li>
+          <li>盘中模式会尝试用实时行情合成临时日 K，盘后模式使用正式日线数据。</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <script src="/global-settings.js"></script>
+  <script src="/app-layout.js"></script>
+  <script>
+    const today = new Date();
+    document.getElementById("endDate").value = `${today.getFullYear()}${String(today.getMonth()+1).padStart(2,"0")}${String(today.getDate()).padStart(2,"0")}`;
+    let indexCharts = [];
+    let activeIndexChart = 0;
+    let chartState = {
+      start: 0,
+      count: 120,
+      hoverIndex: null,
+      layout: null,
+      dragging: false,
+      dragStartX: 0,
+      dragStartStart: 0
+    };
+
+    function goStrategy(select) {
+      const target = select.value;
+      const current = window.location.pathname === "/index.html" ? "/" : window.location.pathname;
+      if (target && target !== current) {
+        if (window.matchMedia("(max-width: 900px)").matches) {
+          window.location.href = target;
+          return;
+        }
+        window.open(target, "_blank", "noopener");
+      }
+      select.value = current;
+    }
+
+    async function runMarketOverview() {
+      const dataSource = getGlobalDataSourcePayload();
+      if (!dataSource) return;
+      setStatus("正在刷新大盘...");
+      const payload = {
+        ...dataSource,
+        review_mode: document.getElementById("reviewMode").value,
+        end_date: document.getElementById("endDate").value.trim(),
+        lookback_days: Number(document.getElementById("lookbackDays").value),
+        index_period: document.getElementById("indexPeriod").value
+      };
+      try {
+        const res = await fetch("/api/market_overview", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload)});
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.error || "刷新失败");
+        renderMarket(data.market || {});
+        indexCharts = data.index_charts || [];
+        activeIndexChart = 0;
+        resetChartView(indexCharts[activeIndexChart]);
+        renderIndexCharts();
+        document.getElementById("logBox").textContent = (data.logs || []).join("\n");
+        setStatus(`刷新完成，交易日 ${data.trade_date}，指数周期 ${data.index_period_label || ""}`);
+      } catch (err) {
+        setStatus(`刷新失败：${err.message}`, true);
+      }
+    }
+
+    function setStatus(text, bad=false) {
+      const el = document.getElementById("status");
+      el.textContent = text;
+      el.className = bad ? "status bad" : "status";
+    }
+
+    function renderMarket(m) {
+      const items = [
+        ["市场状态", m.state],["建议仓位", m.position],["温度分", m.score],["上涨比例", m.up_ratio],
+        ["赚钱效应", m.profit_score],["情绪分", m.emotion_score],["风险分", m.risk_score],["流动性", m.liquidity_score],
+        ["趋势分", m.trend_score],["资金流", m.flow_score],["涨停数", m.limit_up],["跌停数", m.limit_down],
+        ["炸板数", m.broken_limit],["连板高度", m.max_limit_times],["成交额亿", m.amount_yi],["量能比", m.amount_ratio],
+        ["净流入亿", m.market_net_yi],["交易日", m.trade_date],["模式", m.review_mode],["操作提示", m.playbook, true]
+      ];
+      document.getElementById("marketCards").innerHTML = items.map(([k,v,wide]) => (
+        `<div class="metric ${wide ? "wide" : ""}"><span>${escapeHtml(k)}</span><strong>${escapeHtml(v ?? "")}</strong></div>`
+      )).join("");
+    }
+
+    function renderIndexCharts() {
+      const tabs = document.getElementById("indexTabs");
+      const meta = document.getElementById("indexMeta");
+      const waveGrid = document.getElementById("waveGrid");
+      if (!indexCharts.length) {
+        tabs.innerHTML = "";
+        meta.textContent = "暂无指数K线数据";
+        waveGrid.innerHTML = `<div class="wave-item wave-note">指数数据为空，通常是指数行情权限、分钟数据源、网络或缓存日期问题。市场温度仍可正常参考。</div>`;
+        clearIndexCanvas("暂无指数K线数据");
+        return;
+      }
+      tabs.innerHTML = indexCharts.map((item, idx) => (
+        `<button class="index-tab ${idx === activeIndexChart ? "active" : ""}" onclick="selectIndexChart(${idx})">${escapeHtml(item.name)}</button>`
+      )).join("");
+      renderActiveIndexChart();
+    }
+
+    function selectIndexChart(index) {
+      activeIndexChart = index;
+      resetChartView(indexCharts[activeIndexChart]);
+      renderIndexCharts();
+    }
+
+    function resetChartView(chart) {
+      const rows = chart?.kline || [];
+      const len = rows.length;
+      const count = Math.min(len, 140);
+      chartState = {
+        start: Math.max(0, len - count),
+        count,
+        hoverIndex: null,
+        layout: null,
+        dragging: false,
+        dragStartX: 0,
+        dragStartStart: 0
+      };
+      hideChartTooltip();
+    }
+
+    function resetActiveChartView() {
+      const chart = indexCharts[activeIndexChart];
+      if (!chart) return;
+      resetChartView(chart);
+      drawIndexChart(chart);
+    }
+
+    function zoomChart(factor) {
+      const chart = indexCharts[activeIndexChart];
+      const len = chart?.kline?.length || 0;
+      if (!len) return;
+      const oldCount = Math.max(1, chartState.count || Math.min(120, len));
+      const nextCount = clamp(Math.round(oldCount * factor), Math.min(30, len), len);
+      const center = chartState.hoverIndex ?? chartState.start + oldCount - 1;
+      const ratio = oldCount > 1 ? (center - chartState.start) / oldCount : 1;
+      chartState.count = nextCount;
+      chartState.start = clamp(Math.round(center - nextCount * ratio), 0, Math.max(0, len - nextCount));
+      drawIndexChart(chart);
+    }
+
+    function panChart(steps) {
+      const chart = indexCharts[activeIndexChart];
+      const len = chart?.kline?.length || 0;
+      if (!len) return;
+      chartState.start = clamp(chartState.start + steps, 0, Math.max(0, len - chartState.count));
+      drawIndexChart(chart);
+    }
+
+    function renderActiveIndexChart() {
+      const chart = indexCharts[activeIndexChart];
+      if (!chart) return;
+      const wave = chart.wave || {};
+      const channels = wave.channels || {};
+      const shortChannel = channels.short || wave.channel || {};
+      const majorChannel = channels.major || {};
+      const channel = shortChannel.available ? shortChannel : (majorChannel.available ? majorChannel : wave.channel || {});
+      document.getElementById("indexMeta").textContent =
+        `${chart.name} ${chart.period_label || "日线"} ${formatDate(chart.trade_date || "")} 收盘 ${chart.close ?? ""}，涨跌幅 ${chart.pct_chg ?? ""}%，趋势 ${chart.trend || ""}`;
+      const waveItems = [
+        ["分析周期", chart.period_label || "日线"],
+        ["浪型推演", wave.stage],
+        ["方向倾向", wave.bias],
+        ["置信度", wave.confidence],
+        ["短期通道", shortChannel.type],
+        ["主通道", majorChannel.type],
+        ["短期位置", shortChannel.zone ? `${shortChannel.zone} ${shortChannel.position_pct || ""}%` : ""],
+        ["主通道位置", majorChannel.zone ? `${majorChannel.zone} ${majorChannel.position_pct || ""}%` : ""],
+        ["支撑", wave.support],
+        ["压力", wave.resistance],
+        ["失效条件", wave.invalidation],
+      ];
+      document.getElementById("waveGrid").innerHTML = waveItems.map(([k, v]) => (
+        `<div class="wave-item"><span>${escapeHtml(k)}</span><strong>${escapeHtml(v ?? "")}</strong></div>`
+      )).join("") + `<div class="wave-item wave-note"><span>结构解读</span><strong>${escapeHtml(wave.summary || "")}</strong><span style="margin-top:8px;">短期通道</span><strong>${escapeHtml(shortChannel.summary || "")}</strong><span style="margin-top:8px;">主通道</span><strong>${escapeHtml(majorChannel.summary || "")}</strong><span style="margin-top:8px;">方法</span><strong>${escapeHtml(wave.method || "")}${shortChannel.basis ? "；" + escapeHtml(shortChannel.basis) : ""}${majorChannel.basis ? "；" + escapeHtml(majorChannel.basis) : ""}</strong></div>`;
+      requestAnimationFrame(() => drawIndexChart(chart));
+    }
+
+    function clearIndexCanvas(text) {
+      const canvas = document.getElementById("indexChart");
+      const ctx = canvas.getContext("2d");
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.max(1, Math.floor(rect.width * dpr));
+      canvas.height = Math.max(1, Math.floor(rect.height * dpr));
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, rect.width, rect.height);
+      ctx.fillStyle = "#8b949e";
+      ctx.textAlign = "center";
+      ctx.font = "14px Microsoft YaHei, Arial";
+      ctx.fillText(text, rect.width / 2, rect.height / 2);
+    }
+
+    function drawIndexChart(chart) {
+      const allRows = chart.kline || [];
+      if (!allRows.length) {
+        clearIndexCanvas("暂无K线");
+        return;
+      }
+      if (!chartState.count || chartState.count > allRows.length) {
+        resetChartView(chart);
+      }
+      chartState.start = clamp(chartState.start, 0, Math.max(0, allRows.length - chartState.count));
+      const rows = allRows.slice(chartState.start, chartState.start + chartState.count);
+      const canvas = document.getElementById("indexChart");
+      const ctx = canvas.getContext("2d");
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.max(1, Math.floor(rect.width * dpr));
+      canvas.height = Math.max(1, Math.floor(rect.height * dpr));
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.clearRect(0, 0, rect.width, rect.height);
+
+      const pad = { left: 54, right: 18, top: 18, bottom: 28 };
+      const volumeHeight = Math.max(78, Math.floor(rect.height * 0.18));
+      const gap = 16;
+      const priceTop = pad.top;
+      const priceBottom = rect.height - pad.bottom - volumeHeight - gap;
+      const volumeTop = priceBottom + gap;
+      const width = rect.width - pad.left - pad.right;
+      const priceHeight = priceBottom - priceTop;
+
+      const values = [];
+      rows.forEach(row => {
+        values.push(row.high, row.low);
+        ["ma5", "ma10", "ma20", "ma60"].forEach(key => {
+          if (row[key] !== null && row[key] !== undefined && row[key] !== "") values.push(Number(row[key]));
+        });
+      });
+      addChannelsValues(values, chart.wave, rows);
+      let minPrice = Math.min(...values);
+      let maxPrice = Math.max(...values);
+      const padding = (maxPrice - minPrice) * 0.08 || 1;
+      minPrice -= padding;
+      maxPrice += padding;
+      const maxAmount = Math.max(...rows.map(row => Number(row.amount_yi || 0)), 1);
+      const step = width / rows.length;
+      const candleWidth = Math.max(2, Math.min(12, step * 0.62));
+      const xFor = index => pad.left + step * index + step / 2;
+      const yFor = value => priceTop + (maxPrice - Number(value)) / (maxPrice - minPrice) * priceHeight;
+      chartState.layout = {
+        left: pad.left,
+        right: rect.width - pad.right,
+        width,
+        step,
+        rows,
+        start: chartState.start,
+        count: chartState.count,
+        priceTop,
+        priceBottom,
+        volumeTop,
+        volumeBottom: volumeTop + volumeHeight
+      };
+
+      drawGrid(ctx, rect, pad, priceTop, priceBottom, volumeTop, volumeHeight, minPrice, maxPrice);
+      drawTrendChannels(ctx, rows, chart.wave, xFor, yFor);
+
+      rows.forEach((row, index) => {
+        const x = xFor(index);
+        const up = Number(row.close) >= Number(row.open);
+        const color = up ? "#f85149" : "#3fb950";
+        const highY = yFor(row.high);
+        const lowY = yFor(row.low);
+        const openY = yFor(row.open);
+        const closeY = yFor(row.close);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(x, highY);
+        ctx.lineTo(x, lowY);
+        ctx.stroke();
+        ctx.fillStyle = color;
+        const bodyTop = Math.min(openY, closeY);
+        const bodyHeight = Math.max(2, Math.abs(closeY - openY));
+        ctx.fillRect(x - candleWidth / 2, bodyTop, candleWidth, bodyHeight);
+
+        const amountHeight = Number(row.amount_yi || 0) / maxAmount * volumeHeight;
+        ctx.globalAlpha = 0.55;
+        ctx.fillRect(x - candleWidth / 2, volumeTop + volumeHeight - amountHeight, candleWidth, amountHeight);
+        ctx.globalAlpha = 1;
+      });
+
+      drawMaLine(ctx, rows, "ma5", "#58a6ff", xFor, yFor);
+      drawMaLine(ctx, rows, "ma10", "#d29922", xFor, yFor);
+      drawMaLine(ctx, rows, "ma20", "#a371f7", xFor, yFor);
+      drawMaLine(ctx, rows, "ma60", "#8b949e", xFor, yFor);
+      drawWaveMarks(ctx, rows, chart.wave || {}, xFor, yFor, priceTop, priceBottom);
+      drawHoverGuide(ctx, rows, chartState.hoverIndex, xFor, priceTop, volumeTop + volumeHeight);
+      drawDateAxis(ctx, rows, xFor, rect.height - 9);
+    }
+
+    function drawGrid(ctx, rect, pad, priceTop, priceBottom, volumeTop, volumeHeight, minPrice, maxPrice) {
+      ctx.strokeStyle = "rgba(139,148,158,.22)";
+      ctx.fillStyle = "#8b949e";
+      ctx.lineWidth = 1;
+      ctx.font = "12px Microsoft YaHei, Arial";
+      ctx.textAlign = "right";
+      ctx.textBaseline = "middle";
+      for (let i = 0; i <= 4; i++) {
+        const y = priceTop + (priceBottom - priceTop) * i / 4;
+        const value = maxPrice - (maxPrice - minPrice) * i / 4;
+        ctx.beginPath();
+        ctx.moveTo(pad.left, y);
+        ctx.lineTo(rect.width - pad.right, y);
+        ctx.stroke();
+        ctx.fillText(value.toFixed(0), pad.left - 8, y);
+      }
+      ctx.beginPath();
+      ctx.moveTo(pad.left, volumeTop);
+      ctx.lineTo(rect.width - pad.right, volumeTop);
+      ctx.stroke();
+      ctx.textAlign = "left";
+      ctx.fillText("成交额", pad.left, volumeTop + 12);
+    }
+
+    function drawMaLine(ctx, rows, key, color, xFor, yFor) {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      let started = false;
+      rows.forEach((row, index) => {
+        const value = row[key];
+        if (value === null || value === undefined || value === "") return;
+        const x = xFor(index);
+        const y = yFor(value);
+        if (!started) {
+          ctx.moveTo(x, y);
+          started = true;
+        } else {
+          ctx.lineTo(x, y);
+        }
+      });
+      if (started) ctx.stroke();
+    }
+
+    function addChannelsValues(values, wave, rows) {
+      channelList(wave).forEach(item => addChannelValues(values, item.channel, rows));
+    }
+
+    function addChannelValues(values, channel, rows) {
+      if (!channel?.available || !rows.length) return;
+      const firstIdx = Number(rows[0].idx ?? 0);
+      const lastIdx = Number(rows[rows.length - 1].idx ?? firstIdx);
+      Object.values(channel.lines || {}).forEach(line => {
+        if (!line || line.length < 2) return;
+        const start = Math.max(firstIdx, Number(line[0].idx));
+        const end = Math.min(lastIdx, Number(line[1].idx));
+        if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return;
+        const startPrice = channelPriceAt(line, start);
+        const endPrice = channelPriceAt(line, end);
+        if (Number.isFinite(startPrice)) values.push(startPrice);
+        if (Number.isFinite(endPrice)) values.push(endPrice);
+      });
+    }
+
+    function drawTrendChannels(ctx, rows, wave, xFor, yFor) {
+      const items = channelList(wave);
+      items.forEach(item => drawTrendChannel(ctx, rows, item.channel, xFor, yFor, item));
+    }
+
+    function channelList(wave) {
+      const channels = wave?.channels || {};
+      const items = [];
+      if (channels.major?.available) {
+        items.push({ channel: channels.major, color: "57,197,187", alpha: 0.045, lineAlpha: 0.45, dash: [7, 5] });
+      }
+      if (channels.short?.available) {
+        items.push({ channel: channels.short, color: "242,204,96", alpha: 0.07, lineAlpha: 0.90, dash: [] });
+      }
+      if (!items.length && wave?.channel?.available) {
+        items.push({ channel: wave.channel, color: "242,204,96", alpha: 0.07, lineAlpha: 0.90, dash: [] });
+      }
+      return items;
+    }
+
+    function drawTrendChannel(ctx, rows, channel, xFor, yFor, style) {
+      if (!channel?.available || !rows.length) return;
+      const lines = channel.lines || {};
+      const firstIdx = Number(rows[0].idx ?? 0);
+      const lastIdx = Number(rows[rows.length - 1].idx ?? firstIdx);
+      const lower = lineSegmentForVisible(lines.lower, firstIdx, lastIdx, xFor, yFor);
+      const upper = lineSegmentForVisible(lines.upper, firstIdx, lastIdx, xFor, yFor);
+      const mid = lineSegmentForVisible(lines.mid, firstIdx, lastIdx, xFor, yFor);
+
+      if (lower && upper) {
+        ctx.save();
+        ctx.fillStyle = `rgba(${style.color},${style.alpha})`;
+        ctx.beginPath();
+        ctx.moveTo(lower.x1, lower.y1);
+        ctx.lineTo(lower.x2, lower.y2);
+        ctx.lineTo(upper.x2, upper.y2);
+        ctx.lineTo(upper.x1, upper.y1);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+
+      drawChannelSegment(ctx, upper, `rgba(${style.color},${style.lineAlpha})`, style.dash);
+      drawChannelSegment(ctx, mid, `rgba(${style.color},${Math.max(0.35, style.lineAlpha - 0.25)})`, [4, 5]);
+      drawChannelSegment(ctx, lower, `rgba(${style.color},${style.lineAlpha})`, style.dash);
+    }
+
+    function drawChannelSegment(ctx, segment, color, dash) {
+      if (!segment) return;
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1.3;
+      ctx.setLineDash(dash);
+      ctx.beginPath();
+      ctx.moveTo(segment.x1, segment.y1);
+      ctx.lineTo(segment.x2, segment.y2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function lineSegmentForVisible(line, firstIdx, lastIdx, xFor, yFor) {
+      if (!line || line.length < 2) return null;
+      const start = Math.max(firstIdx, Number(line[0].idx));
+      const end = Math.min(lastIdx, Number(line[1].idx));
+      if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return null;
+      return {
+        x1: xFor(start - chartState.start),
+        y1: yFor(channelPriceAt(line, start)),
+        x2: xFor(end - chartState.start),
+        y2: yFor(channelPriceAt(line, end)),
+      };
+    }
+
+    function channelPriceAt(line, idx) {
+      if (!line || line.length < 2) return NaN;
+      const x1 = Number(line[0].idx);
+      const y1 = Number(line[0].price);
+      const x2 = Number(line[1].idx);
+      const y2 = Number(line[1].price);
+      if (!Number.isFinite(x1) || !Number.isFinite(y1) || !Number.isFinite(x2) || !Number.isFinite(y2) || x1 === x2) {
+        return NaN;
+      }
+      return y1 + (y2 - y1) * (Number(idx) - x1) / (x2 - x1);
+    }
+
+    function drawWaveMarks(ctx, rows, wave, xFor, yFor, top, bottom) {
+      const points = wave.points || [];
+      if (!points.length) return;
+      const indexByDate = new Map(rows.map((row, index) => [String(row.date), index]));
+      const plotted = points
+        .filter(point => indexByDate.has(String(point.date)))
+        .map(point => {
+          const index = indexByDate.get(String(point.date));
+          const x = xFor(index);
+          const y = Math.max(top + 16, Math.min(bottom - 6, yFor(point.price)));
+          return { ...point, x, y };
+        });
+      if (plotted.length >= 2) {
+        ctx.save();
+        ctx.strokeStyle = "rgba(240,246,252,.78)";
+        ctx.lineWidth = 1.3;
+        ctx.setLineDash([6, 5]);
+        ctx.beginPath();
+        plotted.forEach((point, index) => {
+          if (index === 0) ctx.moveTo(point.x, point.y);
+          else ctx.lineTo(point.x, point.y);
+        });
+        ctx.stroke();
+        ctx.restore();
+      }
+      ctx.textAlign = "center";
+      ctx.textBaseline = "bottom";
+      ctx.font = "12px Microsoft YaHei, Arial";
+      plotted.forEach(point => {
+        const x = point.x;
+        const y = point.y;
+        ctx.fillStyle = "#f0f6fc";
+        ctx.strokeStyle = "#f0f6fc";
+        ctx.beginPath();
+        ctx.arc(x, y, 3.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#c9d1d9";
+        ctx.fillText(point.label || point.kind, x, y - 7);
+      });
+    }
+
+    function drawHoverGuide(ctx, rows, absoluteIndex, xFor, top, bottom) {
+      if (absoluteIndex === null || absoluteIndex === undefined) return;
+      const localIndex = absoluteIndex - chartState.start;
+      if (localIndex < 0 || localIndex >= rows.length) return;
+      const x = xFor(localIndex);
+      ctx.save();
+      ctx.strokeStyle = "rgba(240,246,252,.35)";
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 4]);
+      ctx.beginPath();
+      ctx.moveTo(x, top);
+      ctx.lineTo(x, bottom);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawDateAxis(ctx, rows, xFor, y) {
+      ctx.fillStyle = "#8b949e";
+      ctx.font = "11px Microsoft YaHei, Arial";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      const marks = [0, Math.floor(rows.length / 2), rows.length - 1];
+      [...new Set(marks)].forEach(index => {
+        const date = String(rows[index]?.date || "");
+        if (!date) return;
+        ctx.fillText(formatAxisDate(date), xFor(index), y);
+      });
+    }
+
+    function setupChartInteractions() {
+      const canvas = document.getElementById("indexChart");
+      const shell = document.getElementById("chartShell");
+      canvas.addEventListener("mousemove", event => {
+        const chart = indexCharts[activeIndexChart];
+        const layout = chartState.layout;
+        if (!chart || !layout || !layout.rows.length) return;
+        const rect = canvas.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        if (chartState.dragging) {
+          const delta = Math.round((chartState.dragStartX - x) / layout.step);
+          const maxStart = Math.max(0, (chart.kline || []).length - chartState.count);
+          chartState.start = clamp(chartState.dragStartStart + delta, 0, maxStart);
+          drawIndexChart(chart);
+        }
+        updateChartHover(event);
+      });
+      canvas.addEventListener("mouseleave", () => {
+        if (!chartState.dragging) {
+          chartState.hoverIndex = null;
+          hideChartTooltip();
+          if (indexCharts[activeIndexChart]) drawIndexChart(indexCharts[activeIndexChart]);
+        }
+      });
+      canvas.addEventListener("mousedown", event => {
+        const layout = chartState.layout;
+        if (!layout) return;
+        chartState.dragging = true;
+        chartState.dragStartX = event.clientX - canvas.getBoundingClientRect().left;
+        chartState.dragStartStart = chartState.start;
+        shell.classList.add("grabbing");
+      });
+      window.addEventListener("mouseup", () => {
+        chartState.dragging = false;
+        shell.classList.remove("grabbing");
+      });
+      canvas.addEventListener("wheel", event => {
+        if (!indexCharts[activeIndexChart]) return;
+        event.preventDefault();
+        updateChartHover(event);
+        zoomChart(event.deltaY < 0 ? 0.82 : 1.22);
+      }, { passive: false });
+    }
+
+    function updateChartHover(event) {
+      const chart = indexCharts[activeIndexChart];
+      const layout = chartState.layout;
+      if (!chart || !layout || !layout.rows.length) return;
+      const rect = document.getElementById("indexChart").getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const localIndex = clamp(Math.floor((x - layout.left) / layout.step), 0, layout.rows.length - 1);
+      const row = layout.rows[localIndex];
+      chartState.hoverIndex = layout.start + localIndex;
+      showChartTooltip(event, row, chart.name);
+      drawIndexChart(chart);
+    }
+
+    function showChartTooltip(event, row, name) {
+      const tooltip = document.getElementById("chartTooltip");
+      const shell = document.getElementById("chartShell");
+      const shellRect = shell.getBoundingClientRect();
+      const pct = Number(row.pct_chg || 0);
+      tooltip.innerHTML = [
+        `<strong>${escapeHtml(name)} ${formatDate(row.date)}</strong>`,
+        `开 ${formatNumber(row.open)}　高 ${formatNumber(row.high)}`,
+        `低 ${formatNumber(row.low)}　收 ${formatNumber(row.close)}`,
+        `涨跌幅 <span style="color:${pct >= 0 ? "#f85149" : "#3fb950"}">${pct.toFixed(2)}%</span>　成交额 ${formatNumber(row.amount_yi)}亿`,
+        `MA5 ${formatMaybe(row.ma5)}　MA10 ${formatMaybe(row.ma10)}`,
+        `MA20 ${formatMaybe(row.ma20)}　MA60 ${formatMaybe(row.ma60)}`
+      ].join("<br>");
+      tooltip.style.display = "block";
+      const left = clamp(event.clientX - shellRect.left + 14, 8, Math.max(8, shellRect.width - 292));
+      const top = clamp(event.clientY - shellRect.top + 14, 8, Math.max(8, shellRect.height - 150));
+      tooltip.style.left = `${left}px`;
+      tooltip.style.top = `${top}px`;
+    }
+
+    function hideChartTooltip() {
+      const tooltip = document.getElementById("chartTooltip");
+      if (tooltip) tooltip.style.display = "none";
+    }
+
+    function formatDate(value) {
+      const text = String(value || "");
+      if (/^\d{8}\s+\d{2}:\d{2}$/.test(text)) {
+        return `${text.slice(0, 4)}-${text.slice(4, 6)}-${text.slice(6, 8)} ${text.slice(9)}`;
+      }
+      if (/^\d{12}$/.test(text)) {
+        return `${text.slice(0, 4)}-${text.slice(4, 6)}-${text.slice(6, 8)} ${text.slice(8, 10)}:${text.slice(10, 12)}`;
+      }
+      if (text.length !== 8) return text;
+      return `${text.slice(0, 4)}-${text.slice(4, 6)}-${text.slice(6, 8)}`;
+    }
+
+    function formatAxisDate(value) {
+      const text = String(value || "");
+      if (/^\d{8}\s+\d{2}:\d{2}$/.test(text)) {
+        return `${text.slice(4, 6)}/${text.slice(6, 8)} ${text.slice(9)}`;
+      }
+      if (/^\d{12}$/.test(text)) {
+        return `${text.slice(4, 6)}/${text.slice(6, 8)} ${text.slice(8, 10)}:${text.slice(10, 12)}`;
+      }
+      if (text.length === 8) return `${text.slice(4, 6)}/${text.slice(6, 8)}`;
+      return text;
+    }
+
+    function formatNumber(value) {
+      const number = Number(value);
+      return Number.isFinite(number) ? number.toFixed(2) : "--";
+    }
+
+    function formatMaybe(value) {
+      if (value === null || value === undefined || value === "") return "--";
+      return formatNumber(value);
+    }
+
+    function clamp(value, low, high) {
+      return Math.max(low, Math.min(high, value));
+    }
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch]));
+    }
+
+    function openHelp() {
+      const modal = document.getElementById("helpModal");
+      modal.classList.add("open");
+      modal.setAttribute("aria-hidden", "false");
+    }
+    function closeHelp() {
+      const modal = document.getElementById("helpModal");
+      modal.classList.remove("open");
+      modal.setAttribute("aria-hidden", "true");
+    }
+    function closeHelpOnBackdrop(event) {
+      if (event.target.id === "helpModal") closeHelp();
+    }
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape") closeHelp();
+    });
+    window.addEventListener("resize", () => {
+      if (indexCharts.length) drawIndexChart(indexCharts[activeIndexChart]);
+    });
+    setupChartInteractions();
+  </script>
+</body>
+</html>
